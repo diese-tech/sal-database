@@ -47,6 +47,8 @@ They are not a sequence that may be pushed to production.
   administrator enforcement. Force pushes and branch deletion are disabled.
 - The protected `production-plan` and `production` environments require the
   repository owner. Production deployment is manual and serialized.
+- Active tag ruleset `19086798` permits creation but blocks updates and
+  deletion of tags matching `db-v*`, making released contract tags immutable.
 - Private vulnerability reporting is enabled. The repository includes the
   approved proprietary notice, `SECURITY.md`, CODEOWNERS, and grouped weekly
   dependency updates.
