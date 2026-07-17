@@ -23,6 +23,9 @@ has not been evidenced in this environment. Until it passes:
 This fail-closed state prevents a repository-derived schema from being
 mistaken for a verified snapshot of production.
 
+See [`docs/audit-status.md`](docs/audit-status.md) for the current public
+readiness findings, owners, and closure gates.
+
 ## Planned v1 contract
 
 After the recovery gate passes, the first release will be `db-v1.0.0` and will
