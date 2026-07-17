@@ -1,0 +1,5 @@
+-- Recovery-gated bootstrap.
+--
+-- Add only deterministic development/reference fixtures after the canonical
+-- baseline is generated. Never copy production identities, submissions,
+-- evidence, audit rows, or operational state into this file.

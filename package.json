@@ -1,0 +1,22 @@
+{
+  "name": "@diese-tech/sal-database",
+  "version": "0.0.0-private",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "build": "npm run check && npm run typecheck",
+    "check": "node scripts/verify-repository-state.mjs && node scripts/verify-archive.mjs && node scripts/verify-text-files.mjs",
+    "check:contract": "node scripts/verify-contract.mjs",
+    "lint": "node scripts/lint.mjs",
+    "test": "node --test test/verification-scripts.test.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "supabase": "2.109.1",
+    "typescript": "7.0.2"
+  }
+}

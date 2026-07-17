@@ -1,0 +1,23 @@
+{
+  "attestationVersion": 2,
+  "contractVersion": "db-v1.0.0",
+  "migrationHead": "<14-digit migration version>",
+  "contractCommit": "<40-character commit containing the unchanged contract.json>",
+  "contractSha256": "sha256:<contract.json hash>",
+  "deploymentInputsSha256": "sha256:<deployment-input manifest hash>",
+  "productionPostgresMajor": 15,
+  "restoreEvidenceSha256": "sha256:<private evidence bundle hash>",
+  "recoveryIssue": "https://github.com/diese-tech/sal-site/issues/156",
+  "migration025Verified": true,
+  "site170DeploymentVerified": true,
+  "scratchRestoreVerified": true,
+  "rowCountsVerified": true,
+  "databaseObjectsVerified": true,
+  "siteReadSmokeVerified": true,
+  "botReadSmokeVerified": true,
+  "rpoMinutes": 0,
+  "rtoMinutes": 1,
+  "approvedBy": "<maintainer GitHub login>",
+  "approvedAt": "<ISO-8601 UTC timestamp>",
+  "expiresAt": "<ISO-8601 UTC timestamp no more than 30 days later>"
+}

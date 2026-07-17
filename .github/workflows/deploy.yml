@@ -1,0 +1,261 @@
+name: Plan and deploy production database contract
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact 40-character commit on main to deploy
+        required: true
+        type: string
+      release_tag:
+        description: Contract release tag, for example db-v1.0.0
+        required: true
+        type: string
+      confirmation:
+        description: Type DEPLOY_PRODUCTION
+        required: true
+        type: string
+      restore_evidence_sha256:
+        description: SHA-256 independently computed from the private restore evidence bundle
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-production
+  cancel-in-progress: false
+
+env:
+  DEPLOY_COMMIT_SHA: ${{ inputs.commit_sha }}
+  DEPLOY_RELEASE_TAG: ${{ inputs.release_tag }}
+  DEPLOY_CONFIRMATION: ${{ inputs.confirmation }}
+  DEPLOY_RESTORE_EVIDENCE_SHA256: ${{ inputs.restore_evidence_sha256 }}
+
+jobs:
+  preflight:
+    name: Secretless release preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Validate dispatch inputs
+        shell: bash
+        run: |
+          test "${DEPLOY_CONFIRMATION}" = "DEPLOY_PRODUCTION"
+          [[ "${DEPLOY_COMMIT_SHA}" =~ ^[0-9a-f]{40}$ ]]
+          [[ "${DEPLOY_RELEASE_TAG}" =~ ^db-v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "${DEPLOY_RESTORE_EVIDENCE_SHA256}" =~ ^sha256:[0-9a-f]{64}$ ]]
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+      - name: Require the selected commit on main
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "${DEPLOY_COMMIT_SHA}"
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          test "$(git rev-parse origin/main)" = "${DEPLOY_COMMIT_SHA}"
+          git fetch --tags origin
+          if git rev-parse --verify --quiet "refs/tags/${DEPLOY_RELEASE_TAG}"; then
+            test "$(git rev-list -n 1 "refs/tags/${DEPLOY_RELEASE_TAG}")" = "${DEPLOY_COMMIT_SHA}"
+          fi
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check:contract
+      - name: Require current recovery evidence bound to this contract
+        shell: bash
+        run: |
+          node scripts/verify-recovery-attestation.mjs
+          attested_hash="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('recovery-attestation.json', 'utf8')).restoreEvidenceSha256)")"
+          test "${DEPLOY_RESTORE_EVIDENCE_SHA256}" = "${attested_hash}"
+
+  plan:
+    name: Build reviewable production plan
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production-plan
+    outputs:
+      plan-sha256: ${{ steps.plan.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check:contract
+      - run: node scripts/verify-recovery-attestation.mjs
+      - run: npx supabase start
+      - run: npx supabase db reset --local
+      - run: npx supabase db lint --local --fail-on error
+      - run: npx supabase test db --local supabase/tests
+      - run: npx supabase gen types typescript --local > generated/database.types.actual.ts
+      - run: diff --unified generated/database.types.ts generated/database.types.actual.ts
+      - name: Link the protected production project
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: npx supabase link --project-ref "${SUPABASE_PROJECT_REF}" --password "${SUPABASE_DB_PASSWORD}"
+      - name: Capture migration state and dry-run plan
+        id: plan
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -o pipefail
+          npx supabase migration list --linked --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-list-before.txt
+          node scripts/normalize-migration-state.mjs migration-list-before.txt > migration-state.txt
+          npx supabase db push --linked --dry-run --yes --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-plan.txt
+          sha256sum migration-plan.txt > migration-plan.sha256
+          echo "sha256=$(cut -d ' ' -f1 migration-plan.sha256)" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Production database dry run"
+            echo
+            printf 'Commit: `%s`\n' "${DEPLOY_COMMIT_SHA}"
+            echo
+            printf 'Release: `%s`\n' "${DEPLOY_RELEASE_TAG}"
+            echo
+            echo '~~~text'
+            cat migration-plan.txt
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: production-database-plan-${{ github.run_id }}
+          path: |
+            migration-list-before.txt
+            migration-state.txt
+            migration-plan.txt
+            migration-plan.sha256
+          if-no-files-found: error
+          retention-days: 14
+      - name: Stop local Supabase
+        if: always()
+        run: npx supabase stop --no-backup
+
+  apply:
+    name: Protected production apply
+    needs: [preflight, plan]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: production-database-plan-${{ github.run_id }}
+          path: approved-plan
+      - name: Verify the approved plan artifact
+        shell: bash
+        env:
+          APPROVED_PLAN_SHA256: ${{ needs.plan.outputs.plan-sha256 }}
+        run: |
+          test -n "${APPROVED_PLAN_SHA256}"
+          echo "${APPROVED_PLAN_SHA256}  approved-plan/migration-plan.txt" | sha256sum --check -
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check:contract
+      - run: node scripts/verify-recovery-attestation.mjs
+      - run: npx supabase start
+      - run: npx supabase db reset --local
+      - run: npx supabase db lint --local --fail-on error
+      - run: npx supabase test db --local supabase/tests
+      - run: npx supabase gen types typescript --local > generated/database.types.actual.ts
+      - run: diff --unified generated/database.types.ts generated/database.types.actual.ts
+      - name: Revalidate the approved remote state and plan
+        shell: bash
+        env:
+          APPROVED_PLAN_SHA256: ${{ needs.plan.outputs.plan-sha256 }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: |
+          set -o pipefail
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          test "$(git rev-parse origin/main)" = "${DEPLOY_COMMIT_SHA}"
+          npx supabase link --project-ref "${SUPABASE_PROJECT_REF}" --password "${SUPABASE_DB_PASSWORD}"
+          npx supabase migration list --linked --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-list-current.txt
+          node scripts/normalize-migration-state.mjs migration-list-current.txt > migration-state-current.txt
+          diff --unified approved-plan/migration-state.txt migration-state-current.txt
+          npx supabase db push --linked --dry-run --yes --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-plan-current.txt
+          echo "${APPROVED_PLAN_SHA256}  migration-plan-current.txt" | sha256sum --check -
+          diff --unified approved-plan/migration-plan.txt migration-plan-current.txt
+      - name: Apply forward migrations
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: npx supabase db push --linked --yes --password "${SUPABASE_DB_PASSWORD}"
+      - name: Verify migration parity and empty push plan
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -o pipefail
+          npx supabase migration list --linked --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-list-after.txt
+          node scripts/verify-migration-parity.mjs migration-list-after.txt
+          npx supabase db push --linked --dry-run --yes --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee post-push-plan.txt
+          grep -F "Linked project is up to date." post-push-plan.txt
+      - name: Verify linked database assertions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: npx supabase test db --linked supabase/tests
+      - name: Verify normalized schema parity
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          npx supabase db diff --linked --schema public --output schema.diff
+          node scripts/verify-schema-diff.mjs schema.diff
+      - name: Publish immutable contract release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          actual_release="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('contract.json', 'utf8')).version)")"
+          test "${actual_release}" = "${DEPLOY_RELEASE_TAG}"
+          git fetch --tags origin
+          if gh release view "${DEPLOY_RELEASE_TAG}" >/dev/null 2>&1; then
+            test "$(git rev-list -n 1 "refs/tags/${DEPLOY_RELEASE_TAG}")" = "${DEPLOY_COMMIT_SHA}"
+          elif git rev-parse --verify --quiet "refs/tags/${DEPLOY_RELEASE_TAG}"; then
+            gh release create "${DEPLOY_RELEASE_TAG}" --verify-tag --title "${DEPLOY_RELEASE_TAG}" --notes "Verified SAL database contract ${DEPLOY_RELEASE_TAG}."
+          else
+            gh release create "${DEPLOY_RELEASE_TAG}" --target "${DEPLOY_COMMIT_SHA}" --title "${DEPLOY_RELEASE_TAG}" --notes "Verified SAL database contract ${DEPLOY_RELEASE_TAG}."
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: production-database-verification-${{ github.run_id }}
+          path: |
+            migration-list-current.txt
+            migration-plan-current.txt
+            migration-list-after.txt
+            post-push-plan.txt
+            schema.diff
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Stop local Supabase
+        if: always()
+        run: npx supabase stop --no-backup

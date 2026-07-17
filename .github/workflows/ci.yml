@@ -1,0 +1,78 @@
+name: Database contract CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository-state:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      contract-present: ${{ steps.contract.outputs.present }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Detect a released database contract
+        id: contract
+        shell: bash
+        run: |
+          if [[ -f contract.json ]]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm audit --audit-level=high
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+      - name: Scan Git history for credentials
+        uses: trufflesecurity/trufflehog@27b0417c16317ca9a472a9a8092acce143b49c55 # v3.95.9
+        with:
+          extra_args: --results=verified,unknown
+          version: 3.95.9
+
+  database-contract:
+    needs: repository-state
+    if: ${{ needs.repository-state.outputs.contract-present == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check:contract
+      - run: npx supabase start
+      - run: npx supabase db reset --local
+      - run: npx supabase db lint --local --fail-on error
+      - run: npx supabase test db --local supabase/tests
+      - run: npx supabase gen types typescript --local > generated/database.types.actual.ts
+      - run: diff --unified generated/database.types.ts generated/database.types.actual.ts
+      - name: Stop local Supabase
+        if: always()
+        run: npx supabase stop --no-backup
