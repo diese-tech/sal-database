@@ -1,6 +1,6 @@
 # Database delivery audit status
 
-**Repository snapshot:** `diese-tech/sal-database@4c50ec6486ab18646d9833c52f9915efbff4a983`
+**Baseline source snapshot:** `diese-tech/sal-database@372dcf613cd219e74fbdcacc3226fc160f692eb3`
 
 **Last reviewed:** 2026-07-17
 
@@ -10,19 +10,19 @@ non-public recovery evidence are maintained outside the public repositories.
 
 ## Ownership boundary
 
-`diese-tech/sal-database` is the designated sole owner of active Supabase
+`diese-tech/sal-database` is the sole owner of active Supabase
 migrations, generated database types, schema-contract releases, drift checks,
-and production database pushes. That ownership becomes operational only after
-the restore-backed `db-v1.0.0` baseline passes every gate below.
+and production database pushes.
 
-Until then, this repository stays fail-closed:
+The `db-v1.0.0` baseline candidate is now present, but production remains
+fail-closed:
 
-- `supabase/migrations/` contains no active SQL migration;
-- `contract.json` and `generated/database.types.ts` do not exist;
+- the production ledger has not been changed;
+- the baseline DDL has not been executed against production;
 - no database release has been tagged;
-- no production migration ledger has been repaired; and
-- the production workflow rejects deployment without verified recovery and
-  contract inputs.
+- no current `recovery-attestation.json` exists; and
+- the production workflow rejects deployment without that attestation and an
+  approved, empty plan.
 
 The site and bot SQL copies are archived under `history/pre-v1/` as evidence.
 They are not a sequence that may be pushed to production.
@@ -31,16 +31,18 @@ They are not a sequence that may be pushed to production.
 
 | ID | Priority | State | Finding | Closure evidence |
 |---|---|---|---|---|
-| `SAL-OPS-01` | P0 | Blocked | Backup retention, PITR, and scratch restoration have not been verified. | Complete [`diese-tech/sal-site#156`](https://github.com/diese-tech/sal-site/issues/156) with non-sensitive restore evidence and measured RPO/RTO. |
-| `SAL-DB-01` | P1 | Blocked by recovery | No restore-verified canonical baseline or immutable database contract exists. | Complete [#3](https://github.com/diese-tech/sal-database/issues/3), prove an empty reset and normalized schema parity, then release `db-v1.0.0`. |
+| `SAL-OPS-01` | P0 | Partially verified | Encrypted recurring logical backups and an isolated restore are verified; managed Supabase PITR is unavailable on the current plan. | Keep weekly backup verification healthy and attach measured RPO/RTO evidence to [`diese-tech/sal-site#156`](https://github.com/diese-tech/sal-site/issues/156). |
+| `SAL-DB-01` | P1 | Baseline verified; adoption pending | The canonical candidate rebuilds cleanly and matches the captured production `public` schema exactly, but the production ledger and immutable release are unchanged. | Complete the protected bookkeeping-only adoption in [#3](https://github.com/diese-tech/sal-database/issues/3), prove an empty push plan, then release `db-v1.0.0`. |
 | `SAL-CONTRACT-01` | P1 | Blocked by `db-v1.0.0` | The site and bot do not yet vendor generated types or pin an immutable database release. | Complete [`sal-site#175`](https://github.com/diese-tech/sal-site/issues/175) and [`lab-salbot#41`](https://github.com/diese-tech/lab-salbot/issues/41). |
 | `SAL-OPS-02` | P1 | Blocked by `db-v1.0.0` | Approval and stat-review mutations are not yet one database transaction with a durable outbox. | Complete [#4](https://github.com/diese-tech/sal-database/issues/4) and the linked consumer work after both contract pins land. |
-| `SAL-DB-DEPLOY-01` | P1 | Partially verified | Repository and secret-scan bootstrap checks pass, but Docker-backed reset, authenticated push planning, and production parity are not verified. | Attach successful protected-plan and production workflow runs to #3. |
+| `SAL-DB-DEPLOY-01` | P1 | Partially verified | Docker-backed reset, lint, pgTAP, type generation, and captured-schema parity pass; authenticated protected planning and production ledger parity remain unverified. | Attach successful protected-plan and production workflow runs to #3. |
 
 ## Verified repository controls
 
 - The initial recovery-gated scaffold is published at
   [`4c50ec6486ab18646d9833c52f9915efbff4a983`](https://github.com/diese-tech/sal-database/commit/4c50ec6486ab18646d9833c52f9915efbff4a983).
+- The baseline evidence, hashes, and non-sensitive verification results are in
+  [`docs/baseline-evidence.md`](baseline-evidence.md).
 - Bootstrap CI passed repository-state and secret-scan checks in
   [run `29556338868`](https://github.com/diese-tech/sal-database/actions/runs/29556338868).
 - `main` requires pull requests, current checks, resolved conversations, and
@@ -55,15 +57,17 @@ They are not a sequence that may be pushed to production.
 
 ## Release gate
 
-Do not add a baseline migration, generate a contract, repair production
-migration history, or tag `db-v1.0.0` until all of the following are true:
+Do not repair production migration history or tag `db-v1.0.0` until all of the
+following are true:
 
-1. Production migration `025` and the related site deployment are observed.
-2. A scratch restore passes schema, data, RLS, function, storage, Realtime,
+1. Migration `025` is explicitly recorded as absent and non-equivalent; it is
+   not applied or inserted into production history. The related site deployment
+   is observed.
+2. An isolated restore passes schema, data, RLS, function, storage, Realtime,
    site-read, and bot-read checks.
 3. The production schema and migration ledger are captured and preserved.
-4. A blank reset from the candidate baseline passes, and its normalized diff
-   against the restored production schema is empty.
+4. A blank reset from the candidate baseline passes, and its `public` schema
+   dump is byte-identical to the captured production dump.
 5. The protected adoption plan reports exact ledger parity and no pending
    production push.
 

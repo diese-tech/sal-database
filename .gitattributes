@@ -6,3 +6,7 @@
 *.toml text eol=lf
 *.ts text eol=lf
 *.yml text eol=lf
+
+# Pinned Supabase generators emit terminal blank lines in these exact artifacts.
+generated/database.types.ts whitespace=-blank-at-eof
+supabase/migrations/*_production_baseline.sql whitespace=-blank-at-eof
