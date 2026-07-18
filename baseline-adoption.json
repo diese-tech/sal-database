@@ -1,0 +1,27 @@
+{
+  "adoptionVersion": 1,
+  "contractVersion": "db-v1.0.0",
+  "migrationHead": "20260717143900",
+  "historicalMigrations": [
+    { "version": "20260522025017", "name": "20250101000000_initial_schema" },
+    { "version": "20260522025024", "name": "20250521000000_player_alias" },
+    {
+      "version": "20260522025152",
+      "name": "20250522000000_player_stats_v2_gods_org_brands"
+    },
+    { "version": "20260522074731", "name": "correct_division_tier_hierarchy" },
+    {
+      "version": "20260522082156",
+      "name": "add_match_reports_and_player_match_stats"
+    },
+    { "version": "20260523142155", "name": "011_god_draft_schema_complete" },
+    { "version": "20260610162307", "name": "013_single_active_season" },
+    { "version": "20260610162351", "name": "014_atomic_undo_pick" },
+    { "version": "20260610162431", "name": "015_atomic_pick_submit" },
+    { "version": "20260610162505", "name": "016_atomic_match_report_stats" },
+    { "version": "20260610162545", "name": "017_atomic_standings_replace" },
+    { "version": "20260611112111", "name": "018_seed_divisions" },
+    { "version": "20260713182604", "name": "terra_division_rename" },
+    { "version": "20260713183610", "name": "division_role_mappings" }
+  ]
+}
