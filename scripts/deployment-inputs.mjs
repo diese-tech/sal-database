@@ -3,9 +3,10 @@ import { execFileSync } from 'node:child_process';
 
 export const deploymentInputPaths = [
   '.gitattributes',
-  '.github/workflows/deploy.yml',
+  '.github/workflows',
   '.node-version',
   '.npmrc',
+  'baseline-adoption.json',
   'contract.json',
   'generated/database.types.ts',
   'package-lock.json',

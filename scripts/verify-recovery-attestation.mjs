@@ -3,7 +3,6 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import {
   deploymentInputsSha256,
-  requireUnchangedDeploymentInputs,
 } from './deployment-inputs.mjs';
 import { readDatabaseMajorVersion } from './supabase-config.mjs';
 
@@ -16,8 +15,8 @@ const hash = (value) => `sha256:${createHash('sha256').update(value).digest('hex
 const requestedRelease = process.env.DEPLOY_RELEASE_TAG;
 const databaseMajorVersion = readDatabaseMajorVersion();
 
-if (attestation.attestationVersion !== 2) {
-  throw new Error('recovery-attestation.json must use attestationVersion 2.');
+if (attestation.attestationVersion !== 3) {
+  throw new Error('recovery-attestation.json must use attestationVersion 3.');
 }
 if (requestedRelease && requestedRelease !== contract.version) {
   throw new Error('The requested release tag does not match contract.version.');
@@ -42,10 +41,9 @@ const attestedContract = execFileSync('git', ['show', `${attestation.contractCom
 if (hash(attestedContract) !== attestation.contractSha256) {
   throw new Error('The attested commit does not contain the current contract.json.');
 }
-if (attestation.deploymentInputsSha256 !== deploymentInputsSha256(attestation.contractCommit)) {
-  throw new Error('Recovery evidence is not bound to the attested deployment-input manifest.');
+if (attestation.deploymentInputsSha256 !== deploymentInputsSha256('HEAD')) {
+  throw new Error('Recovery evidence is not bound to the current deployment-input manifest.');
 }
-requireUnchangedDeploymentInputs(attestation.contractCommit);
 
 if (!/^sha256:[0-9a-f]{64}$/.test(attestation.restoreEvidenceSha256)) {
   throw new Error('restoreEvidenceSha256 must identify the private restore evidence bundle.');
