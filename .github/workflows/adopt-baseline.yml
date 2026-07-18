@@ -197,7 +197,7 @@ jobs:
           node scripts/verify-baseline-adoption-state.mjs after migration-state-after.txt
           node scripts/verify-migration-parity.mjs migration-list-after.txt
           npx supabase db push --linked --dry-run --yes --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee post-adoption-plan.txt
-          grep -F "Linked project is up to date." post-adoption-plan.txt
+          node scripts/verify-empty-push-plan.mjs post-adoption-plan.txt
           npx supabase test db --linked supabase/tests
           npx supabase db diff --linked --schema public --output schema-after.diff
           node scripts/verify-schema-diff.mjs schema-after.diff
