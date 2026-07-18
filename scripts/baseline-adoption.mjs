@@ -1,21 +1,23 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
-export const readBaselineAdoption = () => {
-  const contract = JSON.parse(
-    readFileSync(new URL('../contract.json', import.meta.url), 'utf8'),
-  );
-  const adoption = JSON.parse(
-    readFileSync(new URL('../baseline-adoption.json', import.meta.url), 'utf8'),
-  );
+const BASELINE_CONTRACT_VERSION = 'db-v1.0.0';
+const BASELINE_MIGRATION_NAME = 'production_baseline.sql';
 
+export const validateBaselineAdoption = ({ adoption, contract, baselineMigrationExists }) => {
   if (adoption.adoptionVersion !== 1) {
     throw new Error('baseline-adoption.json must use adoptionVersion 1.');
   }
-  if (
-    adoption.contractVersion !== contract.version ||
-    adoption.migrationHead !== contract.migrationHead
-  ) {
-    throw new Error('Baseline adoption must match the current database contract.');
+  if (adoption.contractVersion !== BASELINE_CONTRACT_VERSION) {
+    throw new Error(`Baseline adoption must remain pinned to ${BASELINE_CONTRACT_VERSION}.`);
+  }
+  if (!/^\d{14}$/.test(adoption.migrationHead)) {
+    throw new Error('Baseline adoption requires a 14-digit migration head.');
+  }
+  if (!baselineMigrationExists) {
+    throw new Error('The canonical production baseline migration is missing.');
+  }
+  if (!/^\d{14}$/.test(contract.migrationHead) || contract.migrationHead < adoption.migrationHead) {
+    throw new Error('The current contract cannot precede the adopted baseline.');
   }
   if (!Array.isArray(adoption.historicalMigrations) || adoption.historicalMigrations.length === 0) {
     throw new Error('Baseline adoption requires a non-empty historical migration allowlist.');
@@ -38,4 +40,23 @@ export const readBaselineAdoption = () => {
   }
 
   return { adoption, contract, versions };
+};
+
+export const readBaselineAdoption = () => {
+  const contract = JSON.parse(
+    readFileSync(new URL('../contract.json', import.meta.url), 'utf8'),
+  );
+  const adoption = JSON.parse(
+    readFileSync(new URL('../baseline-adoption.json', import.meta.url), 'utf8'),
+  );
+  const baselineMigration = new URL(
+    `../supabase/migrations/${adoption.migrationHead}_${BASELINE_MIGRATION_NAME}`,
+    import.meta.url,
+  );
+
+  return validateBaselineAdoption({
+    adoption,
+    contract,
+    baselineMigrationExists: existsSync(baselineMigration),
+  });
 };

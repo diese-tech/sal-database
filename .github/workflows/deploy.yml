@@ -215,7 +215,7 @@ jobs:
           npx supabase migration list --linked --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-list-after.txt
           node scripts/verify-migration-parity.mjs migration-list-after.txt
           npx supabase db push --linked --dry-run --yes --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee post-push-plan.txt
-          grep -F "Linked project is up to date." post-push-plan.txt
+          node scripts/verify-empty-push-plan.mjs post-push-plan.txt
       - name: Verify linked database assertions
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
