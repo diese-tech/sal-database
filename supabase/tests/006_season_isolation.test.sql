@@ -7,7 +7,7 @@ SELECT plan(4);
 
 INSERT INTO public.seasons (id, name, status, start_date, end_date, is_current)
 VALUES
-  ('test-current-season', 'Current Test Season', 'active', '2026-01-01', '2026-06-30', true),
+  ('test-source-season', 'Source Test Season', 'post-season', '2026-01-01', '2026-06-30', false),
   ('test-new-season', 'New Test Season', 'pre-season', '2026-07-01', '2026-12-31', false);
 
 INSERT INTO public.orgs (
@@ -37,20 +37,20 @@ VALUES (
 );
 
 INSERT INTO public.season_orgs (season_id, org_id, division_id)
-VALUES ('test-current-season', 'test-org', 'terra');
+VALUES ('test-source-season', 'test-org', 'terra');
 
 INSERT INTO public.season_rosters (
   season_id, player_id, org_id, division_id, is_captain, roster_status
 )
 VALUES (
-  'test-current-season', 'test-player', 'test-org', 'terra', true, 'active'
+  'test-source-season', 'test-player', 'test-org', 'terra', true, 'active'
 );
 
 INSERT INTO public.season_rosters (
   season_id, player_id, org_id, division_id, is_captain, roster_status
 )
 VALUES (
-  'test-current-season', 'test-unassigned-player', NULL, NULL, false, 'free_agent'
+  'test-source-season', 'test-unassigned-player', NULL, NULL, false, 'free_agent'
 );
 
 SELECT is(
@@ -65,7 +65,7 @@ SELECT ok(
   EXISTS (
     SELECT 1
     FROM public.season_rosters
-    WHERE season_id = 'test-current-season'
+    WHERE season_id = 'test-source-season'
       AND player_id = 'test-unassigned-player'
       AND org_id IS NULL
       AND division_id IS NULL
