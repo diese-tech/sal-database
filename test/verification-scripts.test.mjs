@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { validateBaselineAdoption } from '../scripts/baseline-adoption.mjs';
+import { countSqlSeedRows } from '../scripts/seed-contract.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const runWithReport = (script, report) => {
@@ -44,6 +45,13 @@ test('keeps baseline adoption pinned while allowing forward contract releases', 
         baselineMigrationExists: false,
       }),
     /baseline migration is missing/i,
+  );
+});
+
+test('counts reviewed SQL seed tuples without relying on live table contents', () => {
+  assert.equal(
+    countSqlSeedRows("insert into public.gods values\n  ('a', 'A'),\n  ('b', 'B');\n"),
+    2,
   );
 });
 
