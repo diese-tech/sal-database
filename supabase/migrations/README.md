@@ -12,3 +12,9 @@ present, so they must not be applied or marked as completed during adoption.
 All later changes are reviewed, forward-only 14-digit migrations owned here.
 Production deployment remains disabled until the protected baseline-adoption
 procedure and recovery attestation are complete.
+
+`20260718053000_clear_preseason_assignments.sql` adds a service-role-only,
+idempotent reset for pre-seasons with no matches or draft rooms. Its one-time
+production call removes only inherited `season_orgs` and `season_rosters` rows
+from `preseason-s2`; organization/player identities and every historical season
+remain intact.

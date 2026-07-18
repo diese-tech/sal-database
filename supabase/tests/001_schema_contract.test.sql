@@ -22,11 +22,11 @@ SELECT ok(to_regclass('public.season_orgs') IS NOT NULL, 'season_orgs exists');
 SELECT ok(to_regclass('public.season_rosters') IS NOT NULL, 'season_rosters exists');
 SELECT has_column('public', 'seasons', 'is_current', 'seasons has an explicit current marker');
 SELECT ok(
-  (SELECT count(*) = 6
+  (SELECT count(*) = 7
    FROM pg_proc p
    JOIN pg_namespace n ON n.oid = p.pronamespace
    WHERE n.nspname = 'public'),
-  'the contract contains the six verified production functions'
+  'the contract contains the seven verified production functions'
 );
 SELECT ok(to_regprocedure('public.replace_standings(jsonb)') IS NOT NULL, 'replace_standings exists');
 SELECT ok(to_regprocedure('public.replace_match_report_stats(uuid,jsonb)') IS NOT NULL, 'replace_match_report_stats exists');

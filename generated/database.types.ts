@@ -1640,6 +1640,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      clear_preseason_assignments: {
+        Args: { p_season_id: string }
+        Returns: Json
+      }
       complete_god_draft: {
         Args: {
           p_bans: Json
