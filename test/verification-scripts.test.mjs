@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
+import { validateBaselineAdoption } from '../scripts/baseline-adoption.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const runWithReport = (script, report) => {
@@ -20,6 +21,31 @@ const runWithReport = (script, report) => {
     rmSync(directory, { recursive: true, force: true });
   }
 };
+
+test('keeps baseline adoption pinned while allowing forward contract releases', () => {
+  const adoption = {
+    adoptionVersion: 1,
+    contractVersion: 'db-v1.0.0',
+    migrationHead: '20260717143900',
+    historicalMigrations: [{ version: '20260701000000', name: 'historical' }],
+  };
+  const result = validateBaselineAdoption({
+    adoption,
+    contract: { version: 'db-v1.2.0', migrationHead: '20260718022500' },
+    baselineMigrationExists: true,
+  });
+
+  assert.deepEqual(result.versions, ['20260701000000']);
+  assert.throws(
+    () =>
+      validateBaselineAdoption({
+        adoption,
+        contract: { version: 'db-v1.2.0', migrationHead: '20260718022500' },
+        baselineMigrationExists: false,
+      }),
+    /baseline migration is missing/i,
+  );
+});
 
 test('normalizes local and remote migration columns deterministically', () => {
   const result = runWithReport(
