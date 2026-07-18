@@ -64,6 +64,22 @@ test('accepts an empty schema diff containing only comments', () => {
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('accepts current and legacy Supabase empty push messages', () => {
+  for (const report of [
+    'Remote database is up to date.\n',
+    'Linked project is up to date.\n',
+  ]) {
+    const result = runWithReport('verify-empty-push-plan.mjs', report);
+    assert.equal(result.status, 0, result.stderr);
+  }
+});
+
+test('rejects a push plan that does not confirm an up-to-date database', () => {
+  const result = runWithReport('verify-empty-push-plan.mjs', 'Would push these migrations:\n');
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /does not confirm an empty push/i);
+});
+
 test('accepts a missing diff file when Supabase reports no schema changes', () => {
   const missingPath = join(tmpdir(), `missing-schema-diff-${process.pid}.sql`);
   const result = spawnSync(
