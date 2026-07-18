@@ -24,15 +24,21 @@
 5. Require a normalized local-versus-production schema diff with no changes.
 6. If any difference exists, stop and create a forward reconciliation
    migration; do not edit the production migration ledger.
-7. During the approved window, use the captured live ledger as the complete
-   allowlist: mark only those historical versions as reverted and mark the
-   equivalent baseline version as applied. Do not execute baseline DDL against
-   the equivalent production schema. Do not add absent versions `019`-`025`.
-8. Require exact linked migration parity and an empty push dry-run.
-9. Preserve the old ledger export so the bookkeeping-only change can be
+7. Dispatch `Adopt production database baseline` against the exact commit at
+   the tip of protected `main`. Its `production-plan` job compares the linked
+   ledger with `baseline-adoption.json`, proves the `public` schema diff is
+   empty, and emits a reviewable bookkeeping-only plan.
+8. Approve the protected `production` job only when the plan lists the 14
+   captured historical versions, baseline `20260717143900`, `schema-ddl=none`,
+   and no other operation. The workflow marks only those allowlisted versions
+   reverted and the equivalent baseline applied. It never executes baseline
+   DDL and never changes league rows. Do not add absent versions `019`-`025`.
+9. Require exact linked migration parity, an empty push dry-run, linked pgTAP,
+   and a second empty schema diff before the workflow creates `db-v1.0.0`.
+10. Preserve the old ledger export so the bookkeeping-only change can be
    reversed without changing schema objects.
 
-The baseline PR completes steps 1-6 only. Steps 7-9 require the protected
+The baseline PR completed steps 1-6 only. Steps 7-10 require the protected
 maintenance workflow and explicit maintainer approval.
 
 ## Tooling references

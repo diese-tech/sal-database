@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -51,6 +51,51 @@ test('rejects a mismatched linked migration row', () => {
   );
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Migration parity failure/);
+});
+
+test('accepts only the exact captured pre-adoption ledger', () => {
+  const manifest = JSON.parse(
+    readFileSync(join(root, 'baseline-adoption.json'), 'utf8'),
+  );
+  const report = [
+    `${manifest.migrationHead}|-`,
+    ...manifest.historicalMigrations.map(({ version }) => `-|${version}`),
+  ].join('\n');
+  const result = runWithReport('verify-baseline-adoption-state.mjs', report);
+  const checked = spawnSync(
+    process.execPath,
+    [
+      join(root, 'scripts', 'verify-baseline-adoption-state.mjs'),
+      'before',
+      join(tmpdir(), 'missing-report.txt'),
+    ],
+    { cwd: root, encoding: 'utf8' },
+  );
+  assert.notEqual(result.status, 0, 'mode is mandatory');
+  assert.notEqual(checked.status, 0, 'missing report is rejected');
+
+  const directory = mkdtempSync(join(tmpdir(), 'sal-database-adoption-test-'));
+  const path = join(directory, 'state.txt');
+  try {
+    writeFileSync(path, `${report}\n`, 'utf8');
+    const accepted = spawnSync(
+      process.execPath,
+      [join(root, 'scripts', 'verify-baseline-adoption-state.mjs'), 'before', path],
+      { cwd: root, encoding: 'utf8' },
+    );
+    assert.equal(accepted.status, 0, accepted.stderr);
+
+    writeFileSync(path, `${report}\n-|20260715000000\n`, 'utf8');
+    const rejected = spawnSync(
+      process.execPath,
+      [join(root, 'scripts', 'verify-baseline-adoption-state.mjs'), 'before', path],
+      { cwd: root, encoding: 'utf8' },
+    );
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /state mismatch/);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test('hashes deployment inputs and rejects critical changes after attestation', () => {
