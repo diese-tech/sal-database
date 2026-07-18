@@ -17,8 +17,8 @@ SELECT ok(
   'RLS is enabled on every public application table'
 );
 SELECT ok(
-  (SELECT count(*) = 21 FROM pg_policies WHERE schemaname = 'public'),
-  'the 21 verified public-schema policies are present'
+  (SELECT count(*) = 22 FROM pg_policies WHERE schemaname = 'public'),
+  'the 22 verified public-schema policies are present'
 );
 SELECT ok(
   NOT EXISTS (

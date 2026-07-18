@@ -697,6 +697,42 @@ export type Database = {
         }
         Relationships: []
       }
+      items: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          image_url: string | null
+          metadata: Json
+          name: string
+          source_updated_at: string | null
+          source_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id: string
+          image_url?: string | null
+          metadata?: Json
+          name: string
+          source_updated_at?: string | null
+          source_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          metadata?: Json
+          name?: string
+          source_updated_at?: string | null
+          source_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       match_reports: {
         Row: {
           away_score: number | null

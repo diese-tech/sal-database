@@ -5,4 +5,4 @@ major_version = 17
 
 [db.seed]
 enabled = true
-sql_paths = ["./seed.sql", "./seeds/smite2-gods.sql"]
+sql_paths = ["./seed.sql", "./seeds/smite2-gods.sql", "./seeds/smite2-items.sql"]

@@ -16,6 +16,7 @@ const requiredDatabaseTests = [
   '002_security_contract.test.sql',
   '003_realtime_contract.test.sql',
   '004_storage_contract.test.sql',
+  '005_item_catalog.test.sql',
 ];
 const hash = `sha256:${createHash('sha256').update(types).digest('hex')}`;
 const databaseMajorVersion = readDatabaseMajorVersion();
