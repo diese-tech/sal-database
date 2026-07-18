@@ -7,7 +7,7 @@ SELECT plan(4);
 
 INSERT INTO public.seasons (id, name, status, start_date, end_date, is_current)
 VALUES
-  ('test-source-season', 'Source Test Season', 'active', '2026-01-01', '2026-06-30', false),
+  ('test-source-season', 'Source Test Season', 'post-season', '2026-01-01', '2026-06-30', false),
   ('test-new-season', 'New Test Season', 'pre-season', '2026-07-01', '2026-12-31', false);
 
 INSERT INTO public.orgs (
