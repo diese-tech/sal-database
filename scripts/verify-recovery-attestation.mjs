@@ -54,13 +54,15 @@ if (attestation.recoveryIssue !== 'https://github.com/diese-tech/sal-site/issues
   throw new Error('Recovery evidence must reference sal-site issue #156.');
 }
 for (const field of [
-  'migration025Verified',
+  'migration025DispositionVerified',
   'site170DeploymentVerified',
   'scratchRestoreVerified',
   'rowCountsVerified',
   'databaseObjectsVerified',
   'siteReadSmokeVerified',
   'botReadSmokeVerified',
+  'productionLedgerCaptured',
+  'baselineParityVerified',
 ]) {
   if (attestation[field] !== true) throw new Error(`Recovery attestation requires ${field}=true.`);
 }

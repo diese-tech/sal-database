@@ -9,8 +9,9 @@
    `recovery-attestation.json` separately. It references that prior contract
    commit, hashes `contract.json`, the complete critical deployment-input
    manifest, and the private restore evidence bundle, records measured RPO/RTO,
-   and expires within 30 days. No critical deployment input may change between
-   the attested contract commit and the dispatched commit.
+   confirms the captured ledger, migration `025` disposition, and baseline
+   parity, and expires within 30 days. No critical deployment input may change
+   between the attested contract commit and the dispatched commit.
 4. An operator who can access the private restore bundle computes its SHA-256
    independently. Select the exact 40-character attestation commit in the
    manual workflow and enter that digest; preflight requires it to match the

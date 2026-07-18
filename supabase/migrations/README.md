@@ -1,12 +1,14 @@
 # Active migration sequence
 
-This directory is intentionally empty while the recovery gate in
-`diese-tech/sal-site#156` is open.
+The active sequence starts with
+`20260717143900_production_baseline.sql`, a schema-only export of the verified
+production state at the 2026-07-17 schema freeze.
 
-The first SQL file must be a 14-digit, schema-only canonical baseline produced
-from a reconciled scratch restore. It must not be assembled by concatenating
-the historical site and bot migration directories; those sequences cannot
-replay cleanly in either order.
+The baseline was not assembled by concatenating the historical site and bot
+migration directories. Migrations `019` through `025` from the archived site
+sequence were not recorded in production and their effects were not all
+present, so they must not be applied or marked as completed during adoption.
 
-No migration may be added here until the baseline-adoption runbook's entry
-conditions are satisfied.
+All later changes are reviewed, forward-only 14-digit migrations owned here.
+Production deployment remains disabled until the protected baseline-adoption
+procedure and recovery attestation are complete.
