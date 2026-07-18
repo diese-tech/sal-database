@@ -3,14 +3,14 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(14);
+SELECT plan(18);
 
 SELECT ok(
-  (SELECT count(*) = 29
+  (SELECT count(*) = 31
    FROM pg_class c
    JOIN pg_namespace n ON n.oid = c.relnamespace
    WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')),
-  'the contract contains all 29 application tables'
+  'the contract contains all 31 application tables'
 );
 SELECT ok(to_regclass('public.players') IS NOT NULL, 'players exists');
 SELECT ok(to_regclass('public.matches') IS NOT NULL, 'matches exists');
@@ -18,15 +18,19 @@ SELECT ok(to_regclass('public.pending_actions') IS NOT NULL, 'pending_actions ex
 SELECT ok(to_regclass('public.pending_stat_records') IS NOT NULL, 'pending_stat_records exists');
 SELECT ok(to_regclass('public.match_reports') IS NOT NULL, 'match_reports exists');
 SELECT ok(to_regclass('public.player_match_stats') IS NOT NULL, 'player_match_stats exists');
+SELECT ok(to_regclass('public.season_orgs') IS NOT NULL, 'season_orgs exists');
+SELECT ok(to_regclass('public.season_rosters') IS NOT NULL, 'season_rosters exists');
+SELECT has_column('public', 'seasons', 'is_current', 'seasons has an explicit current marker');
 SELECT ok(
-  (SELECT count(*) = 5
+  (SELECT count(*) = 6
    FROM pg_proc p
    JOIN pg_namespace n ON n.oid = p.pronamespace
    WHERE n.nspname = 'public'),
-  'the baseline contains the five verified production functions'
+  'the contract contains the six verified production functions'
 );
 SELECT ok(to_regprocedure('public.replace_standings(jsonb)') IS NOT NULL, 'replace_standings exists');
 SELECT ok(to_regprocedure('public.replace_match_report_stats(uuid,jsonb)') IS NOT NULL, 'replace_match_report_stats exists');
+SELECT ok(to_regprocedure('public.set_current_season(text)') IS NOT NULL, 'set_current_season exists');
 SELECT ok(
   EXISTS (
     SELECT 1

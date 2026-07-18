@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(7);
+SELECT plan(8);
 
 SELECT ok(
   NOT EXISTS (
@@ -17,8 +17,8 @@ SELECT ok(
   'RLS is enabled on every public application table'
 );
 SELECT ok(
-  (SELECT count(*) = 22 FROM pg_policies WHERE schemaname = 'public'),
-  'the 22 verified public-schema policies are present'
+  (SELECT count(*) = 24 FROM pg_policies WHERE schemaname = 'public'),
+  'the 24 verified public-schema policies are present'
 );
 SELECT ok(
   NOT EXISTS (
@@ -75,6 +75,19 @@ SELECT ok(
       AND NOT has_function_privilege('service_role', p.oid, 'EXECUTE')
   ),
   'SECURITY DEFINER functions remain executable by service_role'
+);
+SELECT ok(
+  has_table_privilege('anon', 'public.season_orgs', 'SELECT')
+    AND has_table_privilege('authenticated', 'public.season_orgs', 'SELECT')
+    AND NOT has_table_privilege('anon', 'public.season_orgs', 'INSERT,UPDATE,DELETE')
+    AND NOT has_table_privilege('authenticated', 'public.season_orgs', 'INSERT,UPDATE,DELETE')
+    AND has_table_privilege('anon', 'public.season_rosters', 'SELECT')
+    AND has_table_privilege('authenticated', 'public.season_rosters', 'SELECT')
+    AND NOT has_table_privilege('anon', 'public.season_rosters', 'INSERT,UPDATE,DELETE')
+    AND NOT has_table_privilege('authenticated', 'public.season_rosters', 'INSERT,UPDATE,DELETE')
+    AND has_table_privilege('service_role', 'public.season_orgs', 'INSERT,SELECT,UPDATE,DELETE')
+    AND has_table_privilege('service_role', 'public.season_rosters', 'INSERT,SELECT,UPDATE,DELETE'),
+  'season participation is publicly readable but service-role writable only'
 );
 
 SELECT * FROM finish();
