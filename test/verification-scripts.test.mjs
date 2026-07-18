@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { validateBaselineAdoption } from '../scripts/baseline-adoption.mjs';
 import { normalizeGeneratedTypes } from '../scripts/normalize-generated-types.mjs';
+import { countSqlSeedRows } from '../scripts/seed-contract.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const runWithReport = (script, report) => {
@@ -51,6 +52,13 @@ test('keeps baseline adoption pinned while allowing forward contract releases', 
 test('normalizes generated types to exactly one trailing newline', () => {
   assert.equal(normalizeGeneratedTypes('export type Database = {}\n\n'), 'export type Database = {}\n');
   assert.equal(normalizeGeneratedTypes('export type Database = {}'), 'export type Database = {}\n');
+});
+
+test('counts reviewed SQL seed tuples without relying on live table contents', () => {
+  assert.equal(
+    countSqlSeedRows("insert into public.gods values\n  ('a', 'A'),\n  ('b', 'B');\n"),
+    2,
+  );
 });
 
 test('normalizes local and remote migration columns deterministically', () => {
