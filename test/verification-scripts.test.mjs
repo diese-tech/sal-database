@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
+import { validateBaselineAdoption } from '../scripts/baseline-adoption.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const runWithReport = (script, report) => {
@@ -21,6 +22,31 @@ const runWithReport = (script, report) => {
   }
 };
 
+test('keeps baseline adoption pinned while allowing forward contract releases', () => {
+  const adoption = {
+    adoptionVersion: 1,
+    contractVersion: 'db-v1.0.0',
+    migrationHead: '20260717143900',
+    historicalMigrations: [{ version: '20260701000000', name: 'historical' }],
+  };
+  const result = validateBaselineAdoption({
+    adoption,
+    contract: { version: 'db-v1.2.0', migrationHead: '20260718022500' },
+    baselineMigrationExists: true,
+  });
+
+  assert.deepEqual(result.versions, ['20260701000000']);
+  assert.throws(
+    () =>
+      validateBaselineAdoption({
+        adoption,
+        contract: { version: 'db-v1.2.0', migrationHead: '20260718022500' },
+        baselineMigrationExists: false,
+      }),
+    /baseline migration is missing/i,
+  );
+});
+
 test('normalizes local and remote migration columns deterministically', () => {
   const result = runWithReport(
     'normalize-migration-state.mjs',
@@ -36,6 +62,33 @@ test('normalizes local and remote migration columns deterministically', () => {
 test('accepts an empty schema diff containing only comments', () => {
   const result = runWithReport('verify-schema-diff.mjs', '-- normalized by Supabase\n\n');
   assert.equal(result.status, 0, result.stderr);
+});
+
+test('accepts current and legacy Supabase empty push messages', () => {
+  for (const report of [
+    'Remote database is up to date.\n',
+    'Linked project is up to date.\n',
+  ]) {
+    const result = runWithReport('verify-empty-push-plan.mjs', report);
+    assert.equal(result.status, 0, result.stderr);
+  }
+});
+
+test('rejects a push plan that does not confirm an up-to-date database', () => {
+  const result = runWithReport('verify-empty-push-plan.mjs', 'Would push these migrations:\n');
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /does not confirm an empty push/i);
+});
+
+test('accepts a missing diff file when Supabase reports no schema changes', () => {
+  const missingPath = join(tmpdir(), `missing-schema-diff-${process.pid}.sql`);
+  const result = spawnSync(
+    process.execPath,
+    [join(root, 'scripts', 'verify-schema-diff.mjs'), missingPath],
+    { cwd: root, encoding: 'utf8' },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /empty normalized linked schema diff/);
 });
 
 test('rejects executable linked schema drift', () => {
