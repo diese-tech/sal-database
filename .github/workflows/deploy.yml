@@ -98,6 +98,7 @@ jobs:
       - run: npx supabase db lint --local --fail-on error
       - run: npx supabase test db --local supabase/tests
       - run: npx supabase gen types typescript --local > generated/database.types.actual.ts
+      - run: node scripts/normalize-generated-types.mjs generated/database.types.actual.ts
       - run: diff --unified generated/database.types.ts generated/database.types.actual.ts
       - name: Link the protected production project
         shell: bash
@@ -116,7 +117,7 @@ jobs:
           set -o pipefail
           npx supabase migration list --linked --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-list-before.txt
           node scripts/normalize-migration-state.mjs migration-list-before.txt > migration-state.txt
-          npx supabase db push --linked --dry-run --yes --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-plan.txt
+          npx supabase db push --linked --dry-run --yes --include-seed --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-plan.txt
           sha256sum migration-plan.txt > migration-plan.sha256
           echo "sha256=$(cut -d ' ' -f1 migration-plan.sha256)" >> "$GITHUB_OUTPUT"
           {
@@ -180,6 +181,7 @@ jobs:
       - run: npx supabase db lint --local --fail-on error
       - run: npx supabase test db --local supabase/tests
       - run: npx supabase gen types typescript --local > generated/database.types.actual.ts
+      - run: node scripts/normalize-generated-types.mjs generated/database.types.actual.ts
       - run: diff --unified generated/database.types.ts generated/database.types.actual.ts
       - name: Revalidate the approved remote state and plan
         shell: bash
@@ -196,7 +198,7 @@ jobs:
           npx supabase migration list --linked --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-list-current.txt
           node scripts/normalize-migration-state.mjs migration-list-current.txt > migration-state-current.txt
           diff --unified approved-plan/migration-state.txt migration-state-current.txt
-          npx supabase db push --linked --dry-run --yes --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-plan-current.txt
+          npx supabase db push --linked --dry-run --yes --include-seed --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-plan-current.txt
           echo "${APPROVED_PLAN_SHA256}  migration-plan-current.txt" | sha256sum --check -
           diff --unified approved-plan/migration-plan.txt migration-plan-current.txt
       - name: Apply forward migrations
@@ -204,7 +206,7 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: npx supabase db push --linked --yes --password "${SUPABASE_DB_PASSWORD}"
+        run: npx supabase db push --linked --yes --include-seed --password "${SUPABASE_DB_PASSWORD}"
       - name: Verify migration parity and empty push plan
         shell: bash
         env:
@@ -214,7 +216,7 @@ jobs:
           set -o pipefail
           npx supabase migration list --linked --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-list-after.txt
           node scripts/verify-migration-parity.mjs migration-list-after.txt
-          npx supabase db push --linked --dry-run --yes --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee post-push-plan.txt
+          npx supabase db push --linked --dry-run --yes --include-seed --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee post-push-plan.txt
           node scripts/verify-empty-push-plan.mjs post-push-plan.txt
       - name: Verify linked database assertions
         env:

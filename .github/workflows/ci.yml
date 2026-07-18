@@ -72,6 +72,7 @@ jobs:
       - run: npx supabase db lint --local --fail-on error
       - run: npx supabase test db --local supabase/tests
       - run: npx supabase gen types typescript --local > generated/database.types.actual.ts
+      - run: node scripts/normalize-generated-types.mjs generated/database.types.actual.ts
       - run: diff --unified generated/database.types.ts generated/database.types.actual.ts
       - name: Stop local Supabase
         if: always()

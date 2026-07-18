@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { validateBaselineAdoption } from '../scripts/baseline-adoption.mjs';
+import { normalizeGeneratedTypes } from '../scripts/normalize-generated-types.mjs';
 import { countSqlSeedRows } from '../scripts/seed-contract.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -46,6 +47,11 @@ test('keeps baseline adoption pinned while allowing forward contract releases', 
       }),
     /baseline migration is missing/i,
   );
+});
+
+test('normalizes generated types to exactly one trailing newline', () => {
+  assert.equal(normalizeGeneratedTypes('export type Database = {}\n\n'), 'export type Database = {}\n');
+  assert.equal(normalizeGeneratedTypes('export type Database = {}'), 'export type Database = {}\n');
 });
 
 test('counts reviewed SQL seed tuples without relying on live table contents', () => {
