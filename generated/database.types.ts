@@ -871,6 +871,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "matches_away_season_org_fkey"
+            columns: ["season_id", "away_org_id"]
+            isOneToOne: false
+            referencedRelation: "season_orgs"
+            referencedColumns: ["season_id", "org_id"]
+          },
+          {
             foreignKeyName: "matches_division_id_fkey"
             columns: ["division_id"]
             isOneToOne: false
@@ -883,6 +890,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "orgs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_home_season_org_fkey"
+            columns: ["season_id", "home_org_id"]
+            isOneToOne: false
+            referencedRelation: "season_orgs"
+            referencedColumns: ["season_id", "org_id"]
           },
           {
             foreignKeyName: "matches_season_id_fkey"
@@ -1429,11 +1443,123 @@ export type Database = {
           },
         ]
       }
+      season_orgs: {
+        Row: {
+          created_at: string
+          division_id: string
+          org_id: string
+          season_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          division_id: string
+          org_id: string
+          season_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          division_id?: string
+          org_id?: string
+          season_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "season_orgs_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "season_orgs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "season_orgs_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      season_rosters: {
+        Row: {
+          created_at: string
+          division_id: string | null
+          is_captain: boolean
+          org_id: string | null
+          player_id: string
+          roster_status: string
+          season_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          division_id?: string | null
+          is_captain?: boolean
+          org_id?: string | null
+          player_id: string
+          roster_status?: string
+          season_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          division_id?: string | null
+          is_captain?: boolean
+          org_id?: string | null
+          player_id?: string
+          roster_status?: string
+          season_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "season_rosters_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "season_rosters_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "season_rosters_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "season_rosters_season_org_division_fkey"
+            columns: ["season_id", "org_id", "division_id"]
+            isOneToOne: false
+            referencedRelation: "season_orgs"
+            referencedColumns: ["season_id", "org_id", "division_id"]
+          },
+        ]
+      }
       seasons: {
         Row: {
           current_week: number
           end_date: string
           id: string
+          is_current: boolean
           name: string
           start_date: string
           status: string
@@ -1442,6 +1568,7 @@ export type Database = {
           current_week?: number
           end_date: string
           id: string
+          is_current?: boolean
           name: string
           start_date: string
           status: string
@@ -1450,6 +1577,7 @@ export type Database = {
           current_week?: number
           end_date?: string
           id?: string
+          is_current?: boolean
           name?: string
           start_date?: string
           status?: string
@@ -1528,6 +1656,24 @@ export type Database = {
         Returns: undefined
       }
       replace_standings: { Args: { p_rows: Json }; Returns: undefined }
+      set_current_season: {
+        Args: { p_season_id: string }
+        Returns: {
+          current_week: number
+          end_date: string
+          id: string
+          is_current: boolean
+          name: string
+          start_date: string
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "seasons"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       submit_draft_pick: {
         Args: {
           p_draft_room_id: string
@@ -1674,4 +1820,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
