@@ -18,6 +18,9 @@ deployment, or authorization to push production by itself.
   unchanged until a dedicated identity migration defines that mutation.
 - Terminal decisions are idempotent. A repeated request returns
   `already_processed` and does not add audits or outbox rows.
+- Reusing an outbox deduplication key is valid only when the topic, aggregate,
+  event type, and JSON payload exactly match the original immutable event. A
+  mismatch raises `23505` and rolls back the caller's transaction.
 - A result or reschedule whose match is no longer `scheduled` becomes
   `cancelled` with code `stale_cancelled`; it is never falsely approved.
 
@@ -75,7 +78,10 @@ select public.resolve_pending_stat_record(
 Approval requires a known player, a completed match, a winner, a positive
 integer `game_number`, and non-negative integer counters. It upserts
 `player_stats`, refreshes `players.stats`, audits both records, and enqueues
-projections in the same transaction. Denial requires a note.
+projections in the same transaction. The player row is locked before the write
+and aggregate refresh so approvals for the same player serialize. A different
+pending record cannot overwrite an existing official row for the same
+match/player/game key. Denial requires a note.
 
 ## Worker contract
 
@@ -126,10 +132,15 @@ Supported initial topics are:
 - `discord_review_projection`
 - `discord_receipt_projection`
 - `discord_captain_notification`
+- `discord_requester_notification`
 - `proof_thread_closure`
 - `standings_recalculation`
 
 Unknown topics must be failed with a sanitized error rather than acknowledged.
+Public receipts and captain notifications are emitted only for match results
+and reschedules. Admin-review and alias workflows use private requester
+notifications. Match-result proof threads close on approved, denied, or stale
+cancelled terminal decisions, but remain open during Needs Info.
 
 ## Inspection
 
@@ -221,6 +232,9 @@ Before enabling consumers:
 - reset an empty local database and run every pgTAP suite;
 - confirm client roles cannot execute the RPCs or read the outbox;
 - run concurrent action decisions and verify one mutation/audit pair;
+- run the `dblink` multi-session cases in suite 008 for simultaneous action
+  decisions, same-player stat aggregation, duplicate stat-source rejection,
+  disjoint worker claims, and expired-lease recovery;
 - force audit and outbox failures and verify complete rollback;
 - demonstrate two workers cannot claim one row;
 - demonstrate expired-lease recovery, completion idempotency, retry, and the

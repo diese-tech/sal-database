@@ -62,6 +62,7 @@ SET search_path = pg_catalog, public
 AS $$
 DECLARE
   v_id uuid;
+  v_existing public.operation_outbox%ROWTYPE;
 BEGIN
   IF p_topic IS NULL OR btrim(p_topic) = ''
     OR p_aggregate_type IS NULL OR btrim(p_aggregate_type) = ''
@@ -80,9 +81,26 @@ BEGIN
   ) VALUES (
     p_topic, p_aggregate_type, p_aggregate_id, p_event_type, p_deduplication_key, p_payload
   )
-  ON CONFLICT (deduplication_key) DO UPDATE
-    SET deduplication_key = EXCLUDED.deduplication_key
+  ON CONFLICT (deduplication_key) DO NOTHING
   RETURNING id INTO v_id;
+
+  IF v_id IS NULL THEN
+    SELECT * INTO v_existing
+    FROM public.operation_outbox
+    WHERE deduplication_key = p_deduplication_key
+    FOR UPDATE;
+
+    IF v_existing.topic IS DISTINCT FROM p_topic
+      OR v_existing.aggregate_type IS DISTINCT FROM p_aggregate_type
+      OR v_existing.aggregate_id IS DISTINCT FROM p_aggregate_id
+      OR v_existing.event_type IS DISTINCT FROM p_event_type
+      OR v_existing.payload IS DISTINCT FROM p_payload THEN
+      RAISE EXCEPTION USING
+        ERRCODE = '23505',
+        MESSAGE = 'Outbox deduplication key is already bound to a different immutable event.';
+    END IF;
+    v_id := v_existing.id;
+  END IF;
 
   RETURN v_id;
 END;
@@ -186,12 +204,25 @@ BEGIN
     'pending_action:' || v_action.id || ':created:admin_review',
     jsonb_build_object('actionId', v_action.id, 'actionType', v_action.type)
   ));
-  v_outbox_ids := array_append(v_outbox_ids, public.enqueue_operation_outbox(
-    'discord_receipt_projection', 'pending_action', v_action.id,
-    'pending_action_created',
-    'pending_action:' || v_action.id || ':created:public_receipt',
-    jsonb_build_object('actionId', v_action.id, 'actionType', v_action.type)
-  ));
+  IF v_action.type IN ('match_result', 'reschedule') THEN
+    v_outbox_ids := array_append(v_outbox_ids, public.enqueue_operation_outbox(
+      'discord_receipt_projection', 'pending_action', v_action.id,
+      'pending_action_created',
+      'pending_action:' || v_action.id || ':created:public_receipt',
+      jsonb_build_object('actionId', v_action.id, 'actionType', v_action.type)
+    ));
+  ELSE
+    v_outbox_ids := array_append(v_outbox_ids, public.enqueue_operation_outbox(
+      'discord_requester_notification', 'pending_action', v_action.id,
+      'pending_action_created',
+      'pending_action:' || v_action.id || ':created:private_requester_notification',
+      jsonb_build_object(
+        'actionId', v_action.id,
+        'actionType', v_action.type,
+        'recipientDiscordId', v_action.requested_by_discord_id
+      )
+    ));
+  END IF;
 
   RETURN jsonb_build_object(
     'actionId', v_action.id,
@@ -475,36 +506,55 @@ BEGIN
     'pending_action:' || v_action.id || ':' || v_final_status || ':admin_review',
     jsonb_build_object('actionId', v_action.id, 'finalStatus', v_final_status)
   ));
-  v_outbox_ids := array_append(v_outbox_ids, public.enqueue_operation_outbox(
-    'discord_receipt_projection', 'pending_action', v_action.id,
-    'pending_action_' || v_final_status,
-    'pending_action:' || v_action.id || ':' || v_final_status || ':public_receipt',
-    jsonb_build_object('actionId', v_action.id, 'finalStatus', v_final_status)
-  ));
-  v_outbox_ids := array_append(v_outbox_ids, public.enqueue_operation_outbox(
-    'discord_captain_notification', 'pending_action', v_action.id,
-    'pending_action_' || v_final_status,
-    'pending_action:' || v_action.id || ':' || v_final_status || ':requester_notification',
-    jsonb_build_object(
-      'actionId', v_action.id,
-      'recipientDiscordId', v_action.requested_by_discord_id,
-      'finalStatus', v_final_status,
-      'note', v_note
-    )
-  ));
+  IF v_action.type IN ('match_result', 'reschedule') THEN
+    v_outbox_ids := array_append(v_outbox_ids, public.enqueue_operation_outbox(
+      'discord_receipt_projection', 'pending_action', v_action.id,
+      'pending_action_' || v_final_status,
+      'pending_action:' || v_action.id || ':' || v_final_status || ':public_receipt',
+      jsonb_build_object('actionId', v_action.id, 'finalStatus', v_final_status)
+    ));
+    v_outbox_ids := array_append(v_outbox_ids, public.enqueue_operation_outbox(
+      'discord_captain_notification', 'pending_action', v_action.id,
+      'pending_action_' || v_final_status,
+      'pending_action:' || v_action.id || ':' || v_final_status || ':captain_notification',
+      jsonb_build_object(
+        'actionId', v_action.id,
+        'recipientDiscordId', v_action.requested_by_discord_id,
+        'finalStatus', v_final_status,
+        'note', v_note
+      )
+    ));
+  ELSE
+    v_outbox_ids := array_append(v_outbox_ids, public.enqueue_operation_outbox(
+      'discord_requester_notification', 'pending_action', v_action.id,
+      'pending_action_' || v_final_status,
+      'pending_action:' || v_action.id || ':' || v_final_status || ':private_requester_notification',
+      jsonb_build_object(
+        'actionId', v_action.id,
+        'recipientDiscordId', v_action.requested_by_discord_id,
+        'finalStatus', v_final_status,
+        'note', v_note
+      )
+    ));
+  END IF;
+
+  IF v_action.type = 'match_result'
+    AND v_final_status IN ('approved', 'denied', 'cancelled')
+    AND v_match.proof_thread_id IS NOT NULL THEN
+    v_outbox_ids := array_append(v_outbox_ids, public.enqueue_operation_outbox(
+      'proof_thread_closure', 'match', v_match.id,
+      'pending_action_' || v_final_status,
+      'pending_action:' || v_action.id || ':' || v_final_status || ':proof_thread_closure',
+      jsonb_build_object(
+        'actionId', v_action.id,
+        'matchId', v_match.id,
+        'proofThreadId', v_match.proof_thread_id,
+        'finalStatus', v_final_status
+      )
+    ));
+  END IF;
 
   IF v_applied AND v_action.type = 'match_result' THEN
-    IF v_match.proof_thread_id IS NOT NULL THEN
-      v_outbox_ids := array_append(v_outbox_ids, public.enqueue_operation_outbox(
-        'proof_thread_closure', 'match', v_match.id, 'match_result_recorded',
-        'pending_action:' || v_action.id || ':approved:proof_thread_closure',
-        jsonb_build_object(
-          'actionId', v_action.id,
-          'matchId', v_match.id,
-          'proofThreadId', v_match.proof_thread_id
-        )
-      ));
-    END IF;
     v_outbox_ids := array_append(v_outbox_ids, public.enqueue_operation_outbox(
       'standings_recalculation', 'match', v_match.id, 'match_result_recorded',
       'pending_action:' || v_action.id || ':approved:standings_recalculation',
@@ -550,6 +600,7 @@ DECLARE
   v_player_org_id text;
   v_won boolean;
   v_stat_id text;
+  v_existing_record_id text;
   v_old_stat jsonb;
   v_new_stat jsonb;
   v_key text;
@@ -619,9 +670,14 @@ BEGIN
       v_note
     );
   ELSE
-    IF v_record.player_id IS NULL OR NOT EXISTS (
-      SELECT 1 FROM public.players WHERE id = v_record.player_id
-    ) THEN
+    IF v_record.player_id IS NULL THEN
+      RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Stat approval requires a known player.';
+    END IF;
+    SELECT org_id INTO v_player_org_id
+    FROM public.players
+    WHERE id = v_record.player_id
+    FOR UPDATE;
+    IF NOT FOUND THEN
       RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Stat approval requires a known player.';
     END IF;
     IF v_match.status <> 'completed' OR v_match.winner_org_id IS NULL THEN
@@ -665,9 +721,8 @@ BEGIN
       RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Stat role must be a string.';
     END IF;
 
-    v_player_org_id := NULLIF(v_stats ->> 'org_id', '');
-    IF v_player_org_id IS NULL THEN
-      SELECT org_id INTO v_player_org_id FROM public.players WHERE id = v_record.player_id;
+    IF NULLIF(v_stats ->> 'org_id', '') IS NOT NULL THEN
+      v_player_org_id := NULLIF(v_stats ->> 'org_id', '');
     END IF;
     IF v_player_org_id IS NULL
       OR v_player_org_id NOT IN (v_match.home_org_id, v_match.away_org_id) THEN
@@ -675,12 +730,19 @@ BEGIN
     END IF;
     v_won := v_player_org_id = v_match.winner_org_id;
 
-    SELECT to_jsonb(ps), ps.id INTO v_old_stat, v_stat_id
+    SELECT to_jsonb(ps), ps.id, ps.pending_stat_record_id
+    INTO v_old_stat, v_stat_id, v_existing_record_id
     FROM public.player_stats ps
     WHERE ps.match_id = v_record.match_id
       AND ps.player_id = v_record.player_id
       AND ps.game_number = v_game_number
     FOR UPDATE;
+
+    IF FOUND AND v_existing_record_id IS DISTINCT FROM v_record.id THEN
+      RAISE EXCEPTION USING
+        ERRCODE = '23505',
+        MESSAGE = 'Official player stats already exist from a different pending stat record.';
+    END IF;
 
     INSERT INTO public.player_stats (
       match_id, player_id, pending_stat_record_id, game_number, won,
