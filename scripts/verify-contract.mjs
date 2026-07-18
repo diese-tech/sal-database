@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { readDatabaseMajorVersion } from './supabase-config.mjs';
+import { countSqlSeedRows } from './seed-contract.mjs';
 
 const contract = JSON.parse(readFileSync(new URL('../contract.json', import.meta.url), 'utf8'));
 const types = readFileSync(new URL('../generated/database.types.ts', import.meta.url));
@@ -20,6 +21,7 @@ const requiredDatabaseTests = [
 ];
 const hash = `sha256:${createHash('sha256').update(types).digest('hex')}`;
 const databaseMajorVersion = readDatabaseMajorVersion();
+const godSeed = readFileSync(new URL('../supabase/seeds/smite2-gods.sql', import.meta.url), 'utf8');
 
 if (!/^db-v\d+\.\d+\.\d+$/.test(contract.version)) {
   throw new Error('contract.version must use db-vMAJOR.MINOR.PATCH.');
@@ -50,6 +52,9 @@ if (missingDatabaseTests.length !== 0) {
 }
 if (contract.typesSha256 !== hash) {
   throw new Error(`Generated type hash mismatch: expected ${contract.typesSha256}, received ${hash}.`);
+}
+if (countSqlSeedRows(godSeed) !== 86) {
+  throw new Error('The reviewed local SMITE god seed must contain exactly 86 rows.');
 }
 
 console.log(
