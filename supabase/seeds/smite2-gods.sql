@@ -90,7 +90,6 @@ insert into public.gods (id, name, class, god_class) values
   ('yemoja', 'Yemoja', 'Guardian', 'Magical'),
   ('ymir', 'Ymir', 'Guardian', 'Magical'),
   ('zeus', 'Zeus', 'Mage', 'Magical')
-on conflict (id) do update set
-  name = excluded.name,
+on conflict (name) do update set
   class = excluded.class,
   god_class = excluded.god_class;
