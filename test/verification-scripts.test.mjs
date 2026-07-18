@@ -7,7 +7,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { validateBaselineAdoption } from '../scripts/baseline-adoption.mjs';
 import { normalizeGeneratedTypes } from '../scripts/normalize-generated-types.mjs';
-import { countSqlSeedRows } from '../scripts/seed-contract.mjs';
+import {
+  countSqlSeedRows,
+  usesIdentityPreservingNameUpsert,
+} from '../scripts/seed-contract.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const runWithReport = (script, report) => {
@@ -58,6 +61,27 @@ test('counts reviewed SQL seed tuples without relying on live table contents', (
   assert.equal(
     countSqlSeedRows("insert into public.gods values\n  ('a', 'A'),\n  ('b', 'B');\n"),
     2,
+  );
+});
+
+test('requires god seed reconciliation to preserve historical IDs', () => {
+  assert.equal(
+    usesIdentityPreservingNameUpsert(
+      'on conflict (name) do update set class = excluded.class;',
+    ),
+    true,
+  );
+  assert.equal(
+    usesIdentityPreservingNameUpsert(
+      'on conflict (name) do update set id = excluded.id;',
+    ),
+    false,
+  );
+  assert.equal(
+    usesIdentityPreservingNameUpsert(
+      'on conflict (id) do update set name = excluded.name;',
+    ),
+    false,
   );
 });
 

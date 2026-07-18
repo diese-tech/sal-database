@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { readDatabaseMajorVersion } from './supabase-config.mjs';
-import { countSqlSeedRows } from './seed-contract.mjs';
+import { countSqlSeedRows, usesIdentityPreservingNameUpsert } from './seed-contract.mjs';
 
 const contract = JSON.parse(readFileSync(new URL('../contract.json', import.meta.url), 'utf8'));
 const types = readFileSync(new URL('../generated/database.types.ts', import.meta.url));
@@ -55,6 +55,9 @@ if (contract.typesSha256 !== hash) {
 }
 if (countSqlSeedRows(godSeed) !== 86) {
   throw new Error('The reviewed local SMITE god seed must contain exactly 86 rows.');
+}
+if (!usesIdentityPreservingNameUpsert(godSeed)) {
+  throw new Error('The SMITE god seed must reconcile by unique name without replacing historical IDs.');
 }
 
 console.log(
