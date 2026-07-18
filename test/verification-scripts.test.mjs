@@ -38,6 +38,17 @@ test('accepts an empty schema diff containing only comments', () => {
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('accepts a missing diff file when Supabase reports no schema changes', () => {
+  const missingPath = join(tmpdir(), `missing-schema-diff-${process.pid}.sql`);
+  const result = spawnSync(
+    process.execPath,
+    [join(root, 'scripts', 'verify-schema-diff.mjs'), missingPath],
+    { cwd: root, encoding: 'utf8' },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /empty normalized linked schema diff/);
+});
+
 test('rejects executable linked schema drift', () => {
   const result = runWithReport('verify-schema-diff.mjs', 'create table public.drifted(id int);\n');
   assert.notEqual(result.status, 0);
