@@ -688,18 +688,39 @@ SELECT is(
 -- Multi-session concurrency harness. These named dblink sessions execute and
 -- commit independently of the pgTAP transaction, so they exercise real row
 -- locks and SKIP LOCKED behavior rather than sequential calls in one session.
+-- Supabase local development uses the login role name as its local-only
+-- password. Force a TCP connection so libpq performs password authentication;
+-- PostgreSQL rejects passwordless dblink sessions for this non-superuser role.
 SELECT is(
-  dblink_connect('db01_setup', 'dbname=' || current_database()),
+  dblink_connect(
+    'db01_setup',
+    format(
+      'hostaddr=127.0.0.1 port=5432 dbname=%s user=%s password=%s',
+      current_database(), current_user, current_user
+    )
+  ),
   'OK',
   'the concurrency setup session connects to the same PostgreSQL database'
 );
 SELECT is(
-  dblink_connect('db01_worker_a', 'dbname=' || current_database()),
+  dblink_connect(
+    'db01_worker_a',
+    format(
+      'hostaddr=127.0.0.1 port=5432 dbname=%s user=%s password=%s',
+      current_database(), current_user, current_user
+    )
+  ),
   'OK',
   'the first concurrent worker session connects'
 );
 SELECT is(
-  dblink_connect('db01_worker_b', 'dbname=' || current_database()),
+  dblink_connect(
+    'db01_worker_b',
+    format(
+      'hostaddr=127.0.0.1 port=5432 dbname=%s user=%s password=%s',
+      current_database(), current_user, current_user
+    )
+  ),
   'OK',
   'the second concurrent worker session connects'
 );
