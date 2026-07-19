@@ -689,13 +689,15 @@ SELECT is(
 -- commit independently of the pgTAP transaction, so they exercise real row
 -- locks and SKIP LOCKED behavior rather than sequential calls in one session.
 -- Supabase local development uses the login role name as its local-only
--- password. Force a TCP connection so libpq performs password authentication;
--- PostgreSQL rejects passwordless dblink sessions for this non-superuser role.
+-- password. Connect through the database container's network address rather
+-- than loopback: its pg_hba rule requires SCRAM there, while loopback is
+-- trusted and PostgreSQL rejects a password that the server did not consume.
 SELECT is(
   dblink_connect(
     'db01_setup',
     format(
-      'hostaddr=127.0.0.1 port=5432 dbname=%s user=%s password=%s',
+      'hostaddr=%s port=%s dbname=%s user=%s password=%s',
+      host(inet_server_addr()), inet_server_port(),
       current_database(), current_user, current_user
     )
   ),
@@ -706,7 +708,8 @@ SELECT is(
   dblink_connect(
     'db01_worker_a',
     format(
-      'hostaddr=127.0.0.1 port=5432 dbname=%s user=%s password=%s',
+      'hostaddr=%s port=%s dbname=%s user=%s password=%s',
+      host(inet_server_addr()), inet_server_port(),
       current_database(), current_user, current_user
     )
   ),
@@ -717,7 +720,8 @@ SELECT is(
   dblink_connect(
     'db01_worker_b',
     format(
-      'hostaddr=127.0.0.1 port=5432 dbname=%s user=%s password=%s',
+      'hostaddr=%s port=%s dbname=%s user=%s password=%s',
+      host(inet_server_addr()), inet_server_port(),
       current_database(), current_user, current_user
     )
   ),
@@ -947,6 +951,14 @@ $action_race_commit$;
 INSERT INTO db01_concurrent_action_results
 SELECT 'worker-b', result::jsonb
 FROM dblink_get_result('db01_worker_b') AS response(result text);
+DO $action_race_drain$
+BEGIN
+  -- libpq requires one final empty result read before this async connection can
+  -- accept another command.
+  PERFORM result
+  FROM dblink_get_result('db01_worker_b') AS response(result text);
+END;
+$action_race_drain$;
 
 SELECT ok(
   (SELECT count(*) = 1 FROM db01_concurrent_action_results WHERE result ->> 'code' = 'applied')
@@ -1007,6 +1019,12 @@ $same_player_race_commit$;
 INSERT INTO db01_concurrent_stat_results
 SELECT 'worker-b', result::jsonb
 FROM dblink_get_result('db01_worker_b') AS response(result text);
+DO $same_player_race_drain$
+BEGIN
+  PERFORM result
+  FROM dblink_get_result('db01_worker_b') AS response(result text);
+END;
+$same_player_race_drain$;
 
 SELECT ok(
   (SELECT count(*) = 2 FROM db01_concurrent_stat_results
@@ -1064,6 +1082,12 @@ $duplicate_stat_race_commit$;
 INSERT INTO db01_duplicate_stat_results
 SELECT 'worker-b', result::jsonb
 FROM dblink_get_result('db01_worker_b') AS response(result text);
+DO $duplicate_stat_race_drain$
+BEGIN
+  PERFORM result
+  FROM dblink_get_result('db01_worker_b') AS response(result text);
+END;
+$duplicate_stat_race_drain$;
 
 SELECT ok(
   (SELECT count(*) = 1 FROM db01_duplicate_stat_results
