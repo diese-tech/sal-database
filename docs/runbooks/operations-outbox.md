@@ -232,9 +232,13 @@ Before enabling consumers:
 - reset an empty local database and run every pgTAP suite;
 - confirm client roles cannot execute the RPCs or read the outbox;
 - run concurrent action decisions and verify one mutation/audit pair;
-- run the `dblink` multi-session cases in suite 008 for simultaneous action
-  decisions, same-player stat aggregation, duplicate stat-source rejection,
-  disjoint worker claims, and expired-lease recovery;
+- run the `dblink` multi-session cases in suite 008. They use explicit remote
+  transactions and held action/player/match locks, assert that the competing
+  RPC is still blocked before releasing worker A, and verify the terminal
+  result after release. The `SKIP LOCKED` case requires worker B to return the
+  second row while worker A's first claim is still uncommitted. Together these
+  cover action decisions, same-player stat aggregation, duplicate stat-source
+  rejection, disjoint worker claims, and expired-lease recovery;
 - force audit and outbox failures and verify complete rollback;
 - demonstrate two workers cannot claim one row;
 - demonstrate expired-lease recovery, completion idempotency, retry, and the

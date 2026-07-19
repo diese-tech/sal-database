@@ -4,7 +4,7 @@ CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS dblink WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(85);
+SELECT plan(88);
 
 SELECT has_table('public', 'operation_outbox', 'the durable operation outbox exists');
 SELECT ok(
@@ -882,29 +882,47 @@ SELECT ok(
   'the independent concurrency fixtures are committed'
 );
 
-DO $action_race$
+CREATE TEMP TABLE db01_concurrent_action_results (
+  worker text,
+  result jsonb
+);
+DO $action_race_begin$
 BEGIN
-  PERFORM dblink_send_query(
+  PERFORM dblink_exec('db01_worker_a', 'BEGIN');
+  PERFORM locked.id
+  FROM dblink(
     'db01_worker_a',
-    $$SELECT public.resolve_pending_action(
-      'db01-conc-action', 'db01-conc-admin', 'approve', NULL
-    )::text$$
-  );
+    $$SELECT id FROM public.pending_actions
+      WHERE id = 'db01-conc-action'
+      FOR UPDATE$$
+  ) AS locked(id text);
   PERFORM dblink_send_query(
     'db01_worker_b',
     $$SELECT public.resolve_pending_action(
       'db01-conc-action', 'db01-conc-admin', 'approve', NULL
     )::text$$
   );
+  PERFORM pg_sleep(0.1);
 END;
-$action_race$;
-CREATE TEMP TABLE db01_concurrent_action_results (
-  worker text,
-  result jsonb
+$action_race_begin$;
+SELECT is(
+  dblink_is_busy('db01_worker_b'),
+  1,
+  'the second action decision is blocked behind worker A row lock'
 );
 INSERT INTO db01_concurrent_action_results
 SELECT 'worker-a', result::jsonb
-FROM dblink_get_result('db01_worker_a') AS response(result text);
+FROM dblink(
+  'db01_worker_a',
+  $$SELECT public.resolve_pending_action(
+    'db01-conc-action', 'db01-conc-admin', 'approve', NULL
+  )::text$$
+) AS response(result text);
+DO $action_race_commit$
+BEGIN
+  PERFORM dblink_exec('db01_worker_a', 'COMMIT');
+END;
+$action_race_commit$;
 INSERT INTO db01_concurrent_action_results
 SELECT 'worker-b', result::jsonb
 FROM dblink_get_result('db01_worker_b') AS response(result text);
@@ -924,29 +942,47 @@ SELECT ok(
   'simultaneous action approval produces one domain mutation and audit'
 );
 
-DO $same_player_race$
+CREATE TEMP TABLE db01_concurrent_stat_results (
+  worker text,
+  result jsonb
+);
+DO $same_player_race_begin$
 BEGIN
-  PERFORM dblink_send_query(
+  PERFORM dblink_exec('db01_worker_a', 'BEGIN');
+  PERFORM locked.id
+  FROM dblink(
     'db01_worker_a',
-    $$SELECT public.db01_capture_stat_resolution(
-      'db01-conc-stat-record-a', 'db01-conc-admin'
-    )::text$$
-  );
+    $$SELECT id FROM public.players
+      WHERE id = 'db01-conc-player'
+      FOR UPDATE$$
+  ) AS locked(id text);
   PERFORM dblink_send_query(
     'db01_worker_b',
     $$SELECT public.db01_capture_stat_resolution(
       'db01-conc-stat-record-b', 'db01-conc-admin'
     )::text$$
   );
+  PERFORM pg_sleep(0.1);
 END;
-$same_player_race$;
-CREATE TEMP TABLE db01_concurrent_stat_results (
-  worker text,
-  result jsonb
+$same_player_race_begin$;
+SELECT is(
+  dblink_is_busy('db01_worker_b'),
+  1,
+  'the second same-player stat approval waits on worker A player lock'
 );
 INSERT INTO db01_concurrent_stat_results
 SELECT 'worker-a', result::jsonb
-FROM dblink_get_result('db01_worker_a') AS response(result text);
+FROM dblink(
+  'db01_worker_a',
+  $$SELECT public.db01_capture_stat_resolution(
+    'db01-conc-stat-record-a', 'db01-conc-admin'
+  )::text$$
+) AS response(result text);
+DO $same_player_race_commit$
+BEGIN
+  PERFORM dblink_exec('db01_worker_a', 'COMMIT');
+END;
+$same_player_race_commit$;
 INSERT INTO db01_concurrent_stat_results
 SELECT 'worker-b', result::jsonb
 FROM dblink_get_result('db01_worker_b') AS response(result text);
@@ -963,29 +999,47 @@ SELECT ok(
   'serialized same-player approvals preserve the complete aggregate'
 );
 
-DO $duplicate_stat_race$
+CREATE TEMP TABLE db01_duplicate_stat_results (
+  worker text,
+  result jsonb
+);
+DO $duplicate_stat_race_begin$
 BEGIN
-  PERFORM dblink_send_query(
+  PERFORM dblink_exec('db01_worker_a', 'BEGIN');
+  PERFORM locked.id
+  FROM dblink(
     'db01_worker_a',
-    $$SELECT public.db01_capture_stat_resolution(
-      'db01-conc-stat-dup-a', 'db01-conc-admin'
-    )::text$$
-  );
+    $$SELECT id FROM public.matches
+      WHERE id = 'db01-conc-stat-dup'
+      FOR UPDATE$$
+  ) AS locked(id text);
   PERFORM dblink_send_query(
     'db01_worker_b',
     $$SELECT public.db01_capture_stat_resolution(
       'db01-conc-stat-dup-b', 'db01-conc-admin'
     )::text$$
   );
+  PERFORM pg_sleep(0.1);
 END;
-$duplicate_stat_race$;
-CREATE TEMP TABLE db01_duplicate_stat_results (
-  worker text,
-  result jsonb
+$duplicate_stat_race_begin$;
+SELECT is(
+  dblink_is_busy('db01_worker_b'),
+  1,
+  'the duplicate source approval waits behind worker A match lock'
 );
 INSERT INTO db01_duplicate_stat_results
 SELECT 'worker-a', result::jsonb
-FROM dblink_get_result('db01_worker_a') AS response(result text);
+FROM dblink(
+  'db01_worker_a',
+  $$SELECT public.db01_capture_stat_resolution(
+    'db01-conc-stat-dup-a', 'db01-conc-admin'
+  )::text$$
+) AS response(result text);
+DO $duplicate_stat_race_commit$
+BEGIN
+  PERFORM dblink_exec('db01_worker_a', 'COMMIT');
+END;
+$duplicate_stat_race_commit$;
 INSERT INTO db01_duplicate_stat_results
 SELECT 'worker-b', result::jsonb
 FROM dblink_get_result('db01_worker_b') AS response(result text);
@@ -1023,7 +1077,13 @@ SELECT ok(
     SET available_at = now() + interval '1 day'
     WHERE aggregate_id LIKE 'db01-conc-%';
     UPDATE public.operation_outbox
-    SET available_at = now()
+    SET available_at = CASE id
+      WHEN '00000000-0000-0000-0000-00000000c001'::uuid
+        THEN now() - interval '2 seconds'
+      WHEN '00000000-0000-0000-0000-00000000c002'::uuid
+        THEN now() - interval '1 second'
+      ELSE available_at
+    END
     WHERE id IN (
       '00000000-0000-0000-0000-00000000c001'::uuid,
       '00000000-0000-0000-0000-00000000c002'::uuid
@@ -1032,37 +1092,43 @@ SELECT ok(
   'the worker-race fixtures are the only remotely available outbox rows'
 );
 
-DO $worker_claim_race$
-BEGIN
-  PERFORM dblink_send_query(
-    'db01_worker_a',
-    $$SELECT COALESCE(jsonb_agg(to_jsonb(claimed)), '[]'::jsonb)::text
-      FROM public.claim_operation_outbox('db01-concurrent-worker-a', 1) claimed$$
-  );
-  PERFORM dblink_send_query(
-    'db01_worker_b',
-    $$SELECT COALESCE(jsonb_agg(to_jsonb(claimed)), '[]'::jsonb)::text
-      FROM public.claim_operation_outbox('db01-concurrent-worker-b', 1) claimed$$
-  );
-END;
-$worker_claim_race$;
 CREATE TEMP TABLE db01_disjoint_claim_results (
   worker text,
   result jsonb
 );
+DO $worker_claim_race_begin$
+BEGIN
+  PERFORM dblink_exec('db01_worker_a', 'BEGIN');
+END;
+$worker_claim_race_begin$;
 INSERT INTO db01_disjoint_claim_results
 SELECT 'worker-a', result::jsonb
-FROM dblink_get_result('db01_worker_a') AS response(result text);
+FROM dblink(
+  'db01_worker_a',
+  $$SELECT COALESCE(jsonb_agg(to_jsonb(claimed)), '[]'::jsonb)::text
+    FROM public.claim_operation_outbox('db01-concurrent-worker-a', 1) claimed$$
+) AS response(result text);
 INSERT INTO db01_disjoint_claim_results
 SELECT 'worker-b', result::jsonb
-FROM dblink_get_result('db01_worker_b') AS response(result text);
+FROM dblink(
+  'db01_worker_b',
+  $$SELECT COALESCE(jsonb_agg(to_jsonb(claimed)), '[]'::jsonb)::text
+    FROM public.claim_operation_outbox('db01-concurrent-worker-b', 1) claimed$$
+) AS response(result text);
 
 SELECT ok(
-  (SELECT bool_and(jsonb_array_length(result) = 1) FROM db01_disjoint_claim_results)
+  (SELECT result #>> '{0,id}' = '00000000-0000-0000-0000-00000000c001'
+    FROM db01_disjoint_claim_results WHERE worker = 'worker-a')
     AND
-  (SELECT count(DISTINCT result #>> '{0,id}') = 2 FROM db01_disjoint_claim_results),
-  'simultaneous workers claim disjoint outbox rows with SKIP LOCKED'
+  (SELECT result #>> '{0,id}' = '00000000-0000-0000-0000-00000000c002'
+    FROM db01_disjoint_claim_results WHERE worker = 'worker-b'),
+  'worker B skips worker A uncommitted claim and returns the second row'
 );
+DO $worker_claim_race_commit$
+BEGIN
+  PERFORM dblink_exec('db01_worker_a', 'COMMIT');
+END;
+$worker_claim_race_commit$;
 
 SELECT ok(
   dblink_exec('db01_setup', $$
