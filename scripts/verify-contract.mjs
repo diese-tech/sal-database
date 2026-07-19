@@ -21,6 +21,8 @@ const requiredDatabaseTests = [
   '006_season_isolation.test.sql',
   '007_preseason_reset.test.sql',
   '008_transactional_decisions_outbox.test.sql',
+  '009_site_review_decisions.test.sql',
+  '010_site_review_concurrency.test.sql',
 ];
 const hash = `sha256:${createHash('sha256').update(types).digest('hex')}`;
 const databaseMajorVersion = readDatabaseMajorVersion();
