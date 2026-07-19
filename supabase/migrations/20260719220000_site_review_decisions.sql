@@ -192,6 +192,15 @@ BEGIN
           profile_claimed = true
       WHERE id = v_player_id;
     END IF;
+
+    IF v_registration.season_id IS NOT NULL THEN
+      INSERT INTO public.season_rosters (
+        season_id, player_id, org_id, division_id, is_captain, roster_status
+      ) VALUES (
+        v_registration.season_id, v_player_id, NULL, NULL, false, 'free_agent'
+      )
+      ON CONFLICT (season_id, player_id) DO NOTHING;
+    END IF;
   END IF;
 
   UPDATE public.registrations
@@ -530,6 +539,12 @@ BEGIN
         MESSAGE = 'Every game must contain exactly five home and five away players.';
     END IF;
   END LOOP;
+
+  IF v_home_score = v_away_score THEN
+    RAISE EXCEPTION USING
+      ERRCODE = '22023',
+      MESSAGE = 'Reviewed series cannot end in a tie.';
+  END IF;
 
   DELETE FROM public.player_match_stats
   WHERE match_report_id = v_report.id;

@@ -4,7 +4,7 @@ CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS dblink WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(40);
+SELECT plan(43);
 
 SELECT has_function(
   'public',
@@ -217,6 +217,34 @@ SELECT ok(
   'match-report review atomically validates 5v5 stats, completes the match and report, audits, and enqueues standings'
 );
 
+INSERT INTO public.registrations (
+  id, discord_id, discord_username, season_id, form_data
+) VALUES (
+  'db02-reg-season', 'db02-season-player-discord', 'db02-season-player',
+  'db02-season', '{"ign":"DB02 Season Player","primary_role":"Support"}'::jsonb
+);
+CREATE TEMP TABLE db02_season_registration_result AS
+SELECT public.resolve_registration_review(
+  'db02-reg-season', 'db02-admin', 'approve', NULL
+) AS result;
+SELECT ok(
+  (SELECT result ->> 'code' = 'applied' FROM db02_season_registration_result)
+  AND
+  EXISTS (
+    SELECT 1
+    FROM public.registrations registrations
+    JOIN public.season_rosters rosters
+      ON rosters.season_id = registrations.season_id
+     AND rosters.player_id = registrations.player_id
+    WHERE registrations.id = 'db02-reg-season'
+      AND rosters.org_id IS NULL
+      AND rosters.division_id IS NULL
+      AND NOT rosters.is_captain
+      AND rosters.roster_status = 'free_agent'
+  ),
+  'approval enrolls a season-scoped registrant in that season as a free agent'
+);
+
 CREATE TEMP TABLE db02_registration_replay AS
 SELECT public.resolve_registration_review(
   'db02-reg-create', 'db02-admin', 'approve', 'Ignored replay note.'
@@ -312,16 +340,21 @@ SELECT throws_ok(
 );
 
 INSERT INTO public.players (
-  id, discord_username, ign, avatar_initials, avatar_gradient,
-  primary_role, status, discord_id, profile_claimed
+  id, org_id, discord_username, ign, avatar_initials, avatar_gradient,
+  primary_role, division_id, status, discord_id, profile_claimed
 ) VALUES (
-  'db02-existing-player', 'old-name', 'Existing IGN', 'EI', '',
-  'Carry', 'free-agent', 'db02-existing-discord', true
+  'db02-existing-player', 'db02-home', 'old-name', 'Existing IGN', 'EI', '',
+  'Carry', 'terra', 'active', 'db02-existing-discord', true
+);
+INSERT INTO public.season_rosters (
+  season_id, player_id, org_id, division_id, is_captain, roster_status
+) VALUES (
+  'db02-season', 'db02-existing-player', 'db02-home', 'terra', true, 'active'
 );
 INSERT INTO public.registrations (
-  id, discord_id, discord_username, form_data
+  id, discord_id, discord_username, season_id, form_data
 ) VALUES (
-  'db02-reg-existing', 'db02-existing-discord', 'current-name',
+  'db02-reg-existing', 'db02-existing-discord', 'current-name', 'db02-season',
   '{"ign":"Submitted IGN","primary_role":"Support"}'::jsonb
 );
 CREATE TEMP TABLE db02_existing_registration_result AS
@@ -338,7 +371,14 @@ SELECT ok(
     FROM public.players WHERE id = 'db02-existing-player')
   AND
   (SELECT player_id = 'db02-existing-player' AND status = 'approved'
-    FROM public.registrations WHERE id = 'db02-reg-existing'),
+    FROM public.registrations WHERE id = 'db02-reg-existing')
+  AND
+  (SELECT org_id = 'db02-home'
+      AND division_id = 'terra'
+      AND is_captain
+      AND roster_status = 'active'
+    FROM public.season_rosters
+    WHERE season_id = 'db02-season' AND player_id = 'db02-existing-player'),
   'approval links the verified Discord identity to its existing player without overwriting profile data'
 );
 
@@ -494,7 +534,8 @@ INSERT INTO public.matches (
   ('db02-fail-report', 'terra', 'db02-home', 'db02-away', '2026-08-12', '19:00', 'scheduled', 1, 'db02-season'),
   ('db02-fail-audit', 'terra', 'db02-home', 'db02-away', '2026-08-13', '19:00', 'scheduled', 1, 'db02-season'),
   ('db02-fail-admin-audit', 'terra', 'db02-home', 'db02-away', '2026-08-14', '19:00', 'scheduled', 1, 'db02-season'),
-  ('db02-fail-outbox', 'terra', 'db02-home', 'db02-away', '2026-08-15', '19:00', 'scheduled', 1, 'db02-season');
+  ('db02-fail-outbox', 'terra', 'db02-home', 'db02-away', '2026-08-15', '19:00', 'scheduled', 1, 'db02-season'),
+  ('db02-tied-series', 'terra', 'db02-home', 'db02-away', '2026-08-16', '19:00', 'scheduled', 1, 'db02-season');
 
 INSERT INTO public.match_reports (
   id, match_id, season_id, division_id, status, submitted_by
@@ -512,7 +553,8 @@ INSERT INTO public.match_reports (
   ('00000000-0000-0000-0000-00000000d212', 'db02-fail-report', 'db02-season', 'terra', 'review', 'db02-submitter'),
   ('00000000-0000-0000-0000-00000000d213', 'db02-fail-audit', 'db02-season', 'terra', 'review', 'db02-submitter'),
   ('00000000-0000-0000-0000-00000000d214', 'db02-fail-admin-audit', 'db02-season', 'terra', 'review', 'db02-submitter'),
-  ('00000000-0000-0000-0000-00000000d215', 'db02-fail-outbox', 'db02-season', 'terra', 'review', 'db02-submitter');
+  ('00000000-0000-0000-0000-00000000d215', 'db02-fail-outbox', 'db02-season', 'terra', 'review', 'db02-submitter'),
+  ('00000000-0000-0000-0000-00000000d216', 'db02-tied-series', 'db02-season', 'terra', 'review', 'db02-submitter');
 
 CREATE TEMP TABLE db02_invalid_match_payloads AS
 SELECT
@@ -534,6 +576,26 @@ SELECT
       to_jsonb('Unlinked Scout'::text)
     )
   ) AS unlinked
+FROM db02_match_payload;
+
+CREATE TEMP TABLE db02_tied_match_payload AS
+SELECT jsonb_build_array(
+  games -> 0,
+  jsonb_build_object(
+    'gameNumber', 2,
+    'winningSide', 'away',
+    'players', (
+      SELECT jsonb_agg(
+        jsonb_set(
+          player,
+          '{won}',
+          to_jsonb((player ->> 'side') = 'away')
+        ) ORDER BY player ->> 'playerId'
+      )
+      FROM jsonb_array_elements(games #> '{0,players}') AS player
+    )
+  )
+) AS games
 FROM db02_match_payload;
 
 SELECT throws_ok(
@@ -616,6 +678,33 @@ SELECT ok(
       )
   ),
   'invalid, cross-team, partial, and stale payloads leave every domain and audit row unchanged'
+);
+
+SELECT throws_ok(
+  $$SELECT public.resolve_match_report_review(
+    '00000000-0000-0000-0000-00000000d216', 'db02-admin',
+    (SELECT games FROM db02_tied_match_payload)
+  )$$,
+  '22023', 'Reviewed series cannot end in a tie.',
+  'a tied reviewed series cannot be finalized'
+);
+SELECT ok(
+  (SELECT status = 'scheduled'
+      AND home_score IS NULL
+      AND away_score IS NULL
+      AND winner_org_id IS NULL
+    FROM public.matches WHERE id = 'db02-tied-series')
+  AND
+  (SELECT status = 'review'
+      AND home_score IS NULL
+      AND away_score IS NULL
+      AND reviewed_at IS NULL
+    FROM public.match_reports WHERE id = '00000000-0000-0000-0000-00000000d216')
+  AND NOT EXISTS (
+    SELECT 1 FROM public.player_match_stats
+    WHERE match_report_id = '00000000-0000-0000-0000-00000000d216'
+  ),
+  'a rejected tied series leaves the match, report, and stats unchanged'
 );
 
 CREATE TEMP TABLE db02_unlinked_match_result AS
