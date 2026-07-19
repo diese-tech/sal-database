@@ -1732,14 +1732,6 @@ export type Database = {
         Args: { p_season_id: string }
         Returns: Json
       }
-      complete_operation_outbox: {
-        Args: {
-          p_external_id?: string
-          p_outbox_id: string
-          p_worker_id: string
-        }
-        Returns: Json
-      }
       complete_god_draft: {
         Args: {
           p_bans: Json
@@ -1750,6 +1742,14 @@ export type Database = {
           p_session_id: string
         }
         Returns: undefined
+      }
+      complete_operation_outbox: {
+        Args: {
+          p_external_id?: string
+          p_outbox_id: string
+          p_worker_id: string
+        }
+        Returns: Json
       }
       create_pending_action: {
         Args: {
