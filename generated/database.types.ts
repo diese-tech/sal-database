@@ -1786,6 +1786,14 @@ export type Database = {
         Returns: undefined
       }
       replace_standings: { Args: { p_rows: Json }; Returns: undefined }
+      resolve_match_report_review: {
+        Args: {
+          p_actor_discord_id: string
+          p_games: Json
+          p_match_report_id: string
+        }
+        Returns: Json
+      }
       resolve_pending_action: {
         Args: {
           p_action_id: string
@@ -1801,6 +1809,15 @@ export type Database = {
           p_decision: string
           p_note?: string
           p_record_id: string
+        }
+        Returns: Json
+      }
+      resolve_registration_review: {
+        Args: {
+          p_actor_discord_id: string
+          p_decision: string
+          p_registration_id: string
+          p_reviewer_note?: string
         }
         Returns: Json
       }

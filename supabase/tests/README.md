@@ -17,6 +17,12 @@ The database contract includes these pgTAP suites:
   boundaries, atomic approval/stat mutations, rollback behavior, terminal
   idempotency, stale cancellation, and durable outbox lease/retry/dead-letter
   behavior.
+- `009_site_review_decisions.test.sql` for atomic registration and match-report
+  review, payload and identity validation, terminal idempotency, forced-failure
+  rollback, and service-role execution boundaries.
+- `010_site_review_concurrency.test.sql` for independent-session registration
+  and match-report races that prove one mutation, one audit pair, and one
+  idempotent terminal result.
 
 A `contract.json` is rejected until all required suites exist. CI runs
 them against a clean local reset, and the protected deployment runs them
