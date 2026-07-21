@@ -46,7 +46,7 @@ jobs:
           [[ "${DEPLOY_COMMIT_SHA}" =~ ^[0-9a-f]{40}$ ]]
           [[ "${DEPLOY_RELEASE_TAG}" =~ ^db-v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           [[ "${DEPLOY_RESTORE_EVIDENCE_SHA256}" =~ ^sha256:[0-9a-f]{64}$ ]]
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 0
@@ -60,7 +60,7 @@ jobs:
           if git rev-parse --verify --quiet "refs/tags/${DEPLOY_RELEASE_TAG}"; then
             test "$(git rev-list -n 1 "refs/tags/${DEPLOY_RELEASE_TAG}")" = "${DEPLOY_COMMIT_SHA}"
           fi
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
@@ -82,11 +82,11 @@ jobs:
     outputs:
       plan-sha256: ${{ steps.plan.outputs.sha256 }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
@@ -131,7 +131,7 @@ jobs:
             cat migration-plan.txt
             echo '~~~'
           } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: production-database-plan-${{ github.run_id }}
           path: |
@@ -154,11 +154,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 0
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: production-database-plan-${{ github.run_id }}
           path: approved-plan
@@ -169,7 +169,7 @@ jobs:
         run: |
           test -n "${APPROVED_PLAN_SHA256}"
           echo "${APPROVED_PLAN_SHA256}  approved-plan/migration-plan.txt" | sha256sum --check -
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
@@ -246,7 +246,7 @@ jobs:
           else
             gh release create "${DEPLOY_RELEASE_TAG}" --target "${DEPLOY_COMMIT_SHA}" --title "${DEPLOY_RELEASE_TAG}" --notes "Verified SAL database contract ${DEPLOY_RELEASE_TAG}."
           fi
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: production-database-verification-${{ github.run_id }}
