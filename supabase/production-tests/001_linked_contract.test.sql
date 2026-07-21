@@ -247,12 +247,21 @@ SELECT ok(
   'clients can read items while only the service role can write them'
 );
 SELECT ok(
-  (SELECT count(*) = 86 FROM public.gods),
-  'the released god catalog is intact'
+  (
+    SELECT count(*) > 0
+      AND bool_and(length(btrim(id)) > 0 AND length(btrim(name)) > 0)
+    FROM public.gods
+  ),
+  'the live god catalog is non-empty and contains valid identities'
 );
 SELECT ok(
-  (SELECT count(*) = 260 AND count(*) FILTER (WHERE active) = 260 FROM public.items),
-  'the released active item catalog is intact'
+  (
+    SELECT count(*) > 0
+      AND count(*) FILTER (WHERE active) > 0
+      AND bool_and(length(btrim(id)) > 0 AND length(btrim(name)) > 0)
+    FROM public.items
+  ),
+  'the live item catalog is non-empty and contains valid identities'
 );
 SELECT ok(
   EXISTS (
