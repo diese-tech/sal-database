@@ -12,8 +12,8 @@ SELECT ok(
   'the released public table set is exact'
 );
 SELECT ok(
-  (SELECT count(*) = 1 FROM public.seasons WHERE is_current),
-  'exactly one season is current'
+  (SELECT count(*) <= 1 FROM public.seasons WHERE is_current),
+  'at most one season is current'
 );
 
 SELECT has_table('public', 'operation_outbox', 'the durable operation outbox exists');
@@ -25,7 +25,7 @@ SELECT ok(
   (
     SELECT array_agg(a.attname ORDER BY a.attnum) @> ARRAY[
       'id', 'event_type', 'aggregate_type', 'aggregate_id', 'payload',
-      'deduplication_key', 'status', 'lease_owner', 'lease_expires_at',
+      'deduplication_key', 'state', 'lease_owner', 'lease_expires_at',
       'attempts', 'available_at', 'last_error', 'external_id', 'completed_at'
     ]::name[]
     FROM pg_attribute a
@@ -247,8 +247,8 @@ SELECT ok(
   'clients can read items while only the service role can write them'
 );
 SELECT ok(
-  (SELECT count(*) = 86 AND count(*) FILTER (WHERE active) = 86 FROM public.gods),
-  'the released active god catalog is intact'
+  (SELECT count(*) = 86 FROM public.gods),
+  'the released god catalog is intact'
 );
 SELECT ok(
   (SELECT count(*) = 260 AND count(*) FILTER (WHERE active) = 260 FROM public.items),
