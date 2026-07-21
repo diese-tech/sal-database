@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { validateBaselineAdoption } from '../scripts/baseline-adoption.mjs';
 import { normalizeGeneratedTypes } from '../scripts/normalize-generated-types.mjs';
+import { assertProductionTestSqlIsReadOnly } from '../scripts/production-test-contract.mjs';
 import {
   countSqlSeedRows,
   usesIdentityPreservingNameUpsert,
@@ -55,6 +56,31 @@ test('keeps baseline adoption pinned while allowing forward contract releases', 
 test('normalizes generated types to exactly one trailing newline', () => {
   assert.equal(normalizeGeneratedTypes('export type Database = {}\n\n'), 'export type Database = {}\n');
   assert.equal(normalizeGeneratedTypes('export type Database = {}'), 'export type Database = {}\n');
+});
+
+test('accepts read-only production contract assertions', () => {
+  assert.doesNotThrow(() =>
+    assertProductionTestSqlIsReadOnly(`
+      BEGIN;
+      SET LOCAL search_path TO extensions, public, pg_catalog;
+      SELECT plan(1);
+      SELECT has_table('public', 'operation_outbox');
+      SELECT * FROM finish();
+      ROLLBACK;
+    `),
+  );
+});
+
+test('rejects mutation and local-only concurrency operations in production tests', () => {
+  for (const sql of [
+    "INSERT INTO public.seasons (id) VALUES ('unsafe');",
+    "DELETE FROM public.players WHERE id = 'unsafe';",
+    "SELECT public.resolve_pending_action('id', 'actor', 'approve', null);",
+    "SELECT dblink_connect('worker', 'host=localhost');",
+    'CREATE TRIGGER unsafe BEFORE INSERT ON public.players EXECUTE FUNCTION public.noop();',
+  ]) {
+    assert.throws(() => assertProductionTestSqlIsReadOnly(sql), /production database assertions must be read-only/i);
+  }
 });
 
 test('counts reviewed SQL seed tuples without relying on live table contents', () => {

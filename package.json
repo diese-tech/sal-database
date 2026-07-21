@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "npm run check && npm run typecheck",
-    "check": "node scripts/verify-repository-state.mjs && node scripts/verify-archive.mjs && node scripts/verify-text-files.mjs",
+    "check": "node scripts/production-test-contract.mjs && node scripts/verify-repository-state.mjs && node scripts/verify-archive.mjs && node scripts/verify-text-files.mjs",
     "check:contract": "node scripts/verify-contract.mjs",
     "lint": "node scripts/lint.mjs",
     "test": "node --test test/verification-scripts.test.mjs",

@@ -222,7 +222,7 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: npx supabase test db --linked supabase/tests
+        run: npx supabase test db --linked supabase/production-tests
       - name: Verify normalized schema parity
         shell: bash
         env:
