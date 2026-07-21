@@ -7,13 +7,13 @@ const forbiddenPatterns = [
   /\bdblink_[a-z0-9_]*\s*\(/i,
   /\bselect\s+(?:\*\s+from\s+)?public\.[a-z0-9_]+\s*\(/i,
   /\bperform\s+/i,
+  /\$[a-z0-9_]*\$/i,
 ];
 
 function stripSqlCommentsAndLiterals(sql) {
   return sql
     .replace(/--.*$/gm, ' ')
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/\$([a-z0-9_]*)\$[\s\S]*?\$\1\$/gi, ' ')
     .replace(/'(?:''|[^'])*'/g, ' ');
 }
 
@@ -23,6 +23,16 @@ export function assertProductionTestSqlIsReadOnly(sql, label = 'production datab
   if (violation) {
     throw new Error(
       `Production database assertions must be read-only: ${label} matched ${violation}.`,
+    );
+  }
+  const normalized = executableSql.trim();
+  if (
+    !/^begin\s*;/i.test(normalized)
+    || !/rollback\s*;\s*$/i.test(normalized)
+    || /\bcommit\b/i.test(normalized)
+  ) {
+    throw new Error(
+      `Production database assertions must begin with BEGIN and end with ROLLBACK: ${label}.`,
     );
   }
 }

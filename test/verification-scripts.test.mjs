@@ -78,9 +78,21 @@ test('rejects mutation and local-only concurrency operations in production tests
     "SELECT public.resolve_pending_action('id', 'actor', 'approve', null);",
     "SELECT dblink_connect('worker', 'host=localhost');",
     'CREATE TRIGGER unsafe BEFORE INSERT ON public.players EXECUTE FUNCTION public.noop();',
+    'DO $$ BEGIN DELETE FROM public.gods; END $$;',
   ]) {
     assert.throws(() => assertProductionTestSqlIsReadOnly(sql), /production database assertions must be read-only/i);
   }
+});
+
+test('requires production assertions to use a rollback-only transaction wrapper', () => {
+  assert.throws(
+    () => assertProductionTestSqlIsReadOnly('SELECT plan(0);'),
+    /begin.*rollback/i,
+  );
+  assert.throws(
+    () => assertProductionTestSqlIsReadOnly('BEGIN; SELECT plan(0); COMMIT;'),
+    /begin.*rollback/i,
+  );
 });
 
 test('counts reviewed SQL seed tuples without relying on live table contents', () => {
