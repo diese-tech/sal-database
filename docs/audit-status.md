@@ -2,11 +2,22 @@
 
 **Baseline source snapshot:** `diese-tech/sal-database@372dcf613cd219e74fbdcacc3226fc160f692eb3`
 
-**Last reviewed:** 2026-07-17
+**Last reviewed:** 2026-07-23
 
 This is the current public status for the SAL database-delivery repository. It
 contains SAL findings only. Detailed cross-platform comparison material and
 non-public recovery evidence are maintained outside the public repositories.
+
+## 2026-07-23 status correction
+
+The baseline-adoption statements below are retained as historical evidence, but
+they no longer describe current `main`. The repository now publishes immutable
+contracts through `db-v1.3.0`, `contract.json` declares migration head
+`20260719220000`, and a current recovery attestation is checked in.
+
+The accepted draft and roster ADRs describe future implementation work, not
+already deployed schema. Their plain-English product and ownership summary is
+[`platform-decisions.md`](platform-decisions.md).
 
 ## Ownership boundary
 
@@ -14,20 +25,14 @@ non-public recovery evidence are maintained outside the public repositories.
 migrations, generated database types, schema-contract releases, drift checks,
 and production database pushes.
 
-The `db-v1.0.0` baseline candidate is now present, but production remains
-fail-closed:
-
-- the production ledger has not been changed;
-- the baseline DDL has not been executed against production;
-- no database release has been tagged;
-- no current `recovery-attestation.json` exists; and
-- the production workflow rejects deployment without that attestation and an
-  approved, empty plan.
+The `db-v1.0.0` baseline was adopted. Production remains fail-closed by design:
+the workflow rejects deployment without a current matching recovery
+attestation, protected approval, and an acceptable production plan.
 
 The site and bot SQL copies are archived under `history/pre-v1/` as evidence.
 They are not a sequence that may be pushed to production.
 
-## Current findings
+## Historical baseline findings
 
 | ID | Priority | State | Finding | Closure evidence |
 |---|---|---|---|---|
