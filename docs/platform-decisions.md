@@ -77,7 +77,9 @@ on Discord OAuth plus:
 
 This allows captaincy changes and lets one organization field a different team
 in every division. Ambiguous or missing role mappings block access. Emergency
-codes are short-lived, room-specific, hashed, revocable, and audited.
+codes are short-lived, bound to one room and one organization, hashed,
+revocable, and audited. An emergency code grants only that organization seat's
+captain access and can never grant administrator access.
 
 Admins open the room, wait for captains to become ready, and start when
 production is ready. Disconnects do not reset the room or timer. Clients
