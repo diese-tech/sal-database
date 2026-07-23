@@ -566,6 +566,100 @@ If the room is already finalized, it safely returns the existing result.
 
 Every recovery-finalization attempt is audited.
 
+## Verification contract
+
+Draft-engine verification uses three layers.
+
+### Database integration
+
+`sal-database` runs the complete migration sequence against a disposable
+Postgres/Supabase environment in CI.
+
+Database integration tests call the real draft functions through independent
+database connections. They do not replace concurrency behavior with mocked
+application helpers.
+
+Required race tests include:
+
+- pick versus pick for one slot;
+- pick versus skip for one slot;
+- confirmed pick versus timeout resolution;
+- timeout auto-pick versus skip;
+- undo versus a new pick;
+- competing season-scoped picks for one player across division rooms;
+- simultaneous claim or roster publication conflicts; and
+- duplicate End Draft requests.
+
+Each race test proves:
+
+- exactly one canonical result where exclusivity is required;
+- deterministic conflict responses for losing operations;
+- no partial roster, slot, timer, or audit mutation;
+- immutable event history;
+- correct room version advancement; and
+- idempotent retry behavior.
+
+Every migration that changes draft behavior adds or updates a database integration
+test before release.
+
+### Site contract and interface tests
+
+`sal-site` tests authorization, request validation, audience projections,
+privacy boundaries, stale versions, error mapping, and responsive interaction
+against the published database contract.
+
+Unit and route tests may mock the database boundary. They do not claim to verify
+Postgres locking or transactional concurrency.
+
+Required site coverage includes:
+
+- pick-sequence generation;
+- turn-ownership rejection;
+- division-tier eligibility;
+- staged selection and confirmation;
+- timeout auto-pick messaging;
+- pick and skip conflict responses;
+- repeatable undo and redo;
+- completion review and End Draft;
+- spectator, captain, administrator, production, and overlay field filtering;
+- ghost-pick privacy;
+- Discord role authorization;
+- realtime-to-polling degradation;
+- reconnect behavior;
+- responsive production-board zoom and mobile fallback; and
+- accessible keyboard and touch controls.
+
+### Cross-repository end-to-end tests
+
+A cross-repository suite runs the built `sal-site` application against the
+disposable migrated database.
+
+It verifies complete workflows for:
+
+- captain authentication and organization-seat authorization;
+- room opening, readiness, and start;
+- staging and confirming a pick;
+- staged-player timeout auto-pick;
+- timeout skip without a staged player;
+- manual pause and resume;
+- repeated undo and redo;
+- administrator-submitted emergency picks;
+- completion review;
+- End Draft roster publication;
+- spectator and production projections; and
+- durable draft-conclusion event creation.
+
+### Production safety
+
+Production verification remains read-only.
+
+CI and local verification scripts must reject draft mutations when configured
+against a production database.
+
+Production smoke tests may verify schema contracts, required functions, safe
+views, and read-only health checks. They never create rooms, stage players,
+resolve slots, alter rosters, or publish draft conclusions.
+
 ## Consequences
 
 ### Positive
@@ -631,6 +725,9 @@ Every recovery-finalization attempt is audited.
   publication from `completion_review`.
 - Add durable draft-conclusion outbox events.
 - Add deterministic locking, concurrency, timeout, and recovery tests.
+- Run the full migration sequence against disposable Postgres/Supabase in CI.
+- Test real functions through concurrent independent database connections.
+- Reject production-mutating verification commands.
 - Publish updated immutable consumer types and a database release.
 
 ### `diese-tech/sal-site`
@@ -658,6 +755,10 @@ Every recovery-finalization attempt is audited.
 - Link the draft-engine audit and implementation documentation to this ADR.
 - Add route, state-machine, authorization, concurrency, timer, reconnect,
   accessibility, outage, and end-to-end tests.
+- Maintain contract, privacy, authorization, responsive, accessibility, and
+  failure-state tests without overstating mocked concurrency coverage.
+- Run cross-repository draft E2E workflows against the disposable migrated
+  database.
 
 ### `diese-tech/lab-salbot`
 
@@ -669,6 +770,8 @@ Every recovery-finalization attempt is audited.
   used.
 - Retry draft-conclusion delivery according to ADR-009.
 - Deliver draft-conclusion events only after End Draft publication succeeds.
+- Test durable draft-conclusion delivery, retry idempotency, role-mapping
+  authorization, and failure alerts against published database event fixtures.
 - Link Discord operations documentation to this ADR.
 
 ## Acceptance criteria
@@ -748,3 +851,17 @@ Every recovery-finalization attempt is audited.
     after conclusion.
 63. Administrator-submitted emergency picks use the same atomic slot-resolution
     invariants as captain picks.
+64. Database integration tests execute real draft functions against disposable
+    migrated Postgres/Supabase.
+65. Concurrency tests use independent database connections.
+66. Required races prove one canonical result and no partial mutation.
+67. Every draft-behavior migration updates database integration coverage.
+68. Site tests explicitly distinguish mocked contract coverage from database
+    concurrency coverage.
+69. Cross-repository E2E tests run the built site against the disposable migrated
+    database.
+70. Cross-repository E2E covers staging, confirmation, timeout, skip, undo, redo,
+    completion review, End Draft, and roster publication.
+71. Audience-projection tests prove ghost picks and private audit data never
+    reach unauthorized clients.
+72. Production verification is read-only and rejects draft mutations.
