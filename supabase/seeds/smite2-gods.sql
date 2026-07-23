@@ -87,6 +87,7 @@ insert into public.gods (id, name, class, god_class) values
   ('ullr', 'Ullr', 'Hunter', 'Physical'),
   ('vulcan', 'Vulcan', 'Mage', 'Magical'),
   ('xbalanque', 'Xbalanque', 'Hunter', 'Physical'),
+  ('xing-tian', 'Xing Tian', 'Guardian', 'Magical'),
   ('yemoja', 'Yemoja', 'Guardian', 'Magical'),
   ('ymir', 'Ymir', 'Guardian', 'Magical'),
   ('zeus', 'Zeus', 'Mage', 'Magical')
