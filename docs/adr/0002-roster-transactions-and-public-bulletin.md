@@ -96,6 +96,23 @@ Only a completed transaction changes canonical roster or draft-order state.
 Only completed transactions and completed reversals appear in the public
 bulletin.
 
+### Shared pending-action orchestration
+
+Every submitted roster transaction creates a linked `pending_actions` record.
+
+The roster-transaction ledger remains the canonical domain record. The
+`pending_actions` row is the shared approval-pipeline envelope used for claim,
+dispatch, administrator review, retries, and operational visibility.
+
+Captain acceptance and counteroffers update the exact linked transaction
+revision. Administrator approval or denial is claimed and dispatched through the
+existing pending-action pipeline rather than a second transaction-specific
+approval system.
+
+The transaction revision, pending-action state, administrator decision,
+immutable `audit_logs` row, roster mutation, and outbox event remain consistent
+through authoritative database functions.
+
 ### Captain consent
 
 Captain consent remains revocable until administrator execution.
@@ -506,3 +523,9 @@ Private reversal reasons remain in the administrative audit record.
 30. Discord role failures never roll back completed database transactions.
 31. Failed role synchronization remains retryable and posts an actionable alert
     to the private administrator channel.
+32. Every submitted transaction has a linked `pending_actions` orchestration
+    record.
+33. Administrator decisions use the shared pending-action claim and dispatch
+    pipeline.
+34. Every completed roster mutation appends an immutable `audit_logs` row with
+    the actor and old/new values in the authoritative transaction.

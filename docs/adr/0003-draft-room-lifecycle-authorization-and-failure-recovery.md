@@ -48,8 +48,8 @@ hosts the authoritative room state. The database remains authoritative.
 
 Each draft room belongs to exactly one season and one division.
 
-Only one room in `pending`, `open`, `active`, `paused`, or `recovery_paused`
-state may exist for a season and division.
+Only one room in `pending`, `open`, `active`, `paused`, `recovery_paused`, or
+`completion_review` state may exist for a season and division.
 
 Only one room in a season may be `active`, `paused`, `recovery_paused`, or
 `completion_review` at a time.
@@ -245,6 +245,9 @@ Each overlay credential is:
 
 Plaintext overlay credentials are returned only when generated and are never
 stored.
+
+Only an authorized administrator may generate, rotate, or revoke an overlay
+credential. Caster and Production roles remain read-only consumers.
 
 ### Discord OAuth outage and emergency access
 

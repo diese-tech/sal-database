@@ -83,14 +83,22 @@ The migration will:
 3. Make `season_id` non-null.
 4. Add or retain the relational constraints needed to prove that a pick's
    `season_id` matches its room's season.
-5. Add a unique constraint on:
+5. Track whether each resolution is canonical.
+6. Add a partial unique index for canonical resolutions on:
 
    ```text
    (season_id, player_id)
    ```
 
-The database must reject a second confirmed pick for the same player in the same
+The immutable event ledger retains reversed and abandoned resolutions. Only the
+current canonical resolution participates in season-wide uniqueness.
+
+The database must reject a second canonical pick for the same player in the same
 season, regardless of which room or application client submits it.
+
+Undo marks the prior resolution non-canonical rather than deleting it. The
+released player can then be selected on the new canonical history branch without
+conflicting with the retained audit event.
 
 The same player remains eligible in another season.
 
@@ -158,7 +166,7 @@ Selecting a suggestion does not commit the pick.
 ### Pick confirmation
 
 Every pick, whether selected from the normal pool or Draft Up Search, enters a
-pending client-side confirmation state.
+server-persisted staged-selection state.
 
 The pending-pick card will identify:
 
@@ -168,10 +176,16 @@ The pending-pick card will identify:
 - relevant player role information; and
 - organization receiving the pick.
 
-Only `Confirm Pick` calls the atomic pick RPC.
+`Confirm Pick` calls the atomic pick RPC immediately.
 
-If the turn changes, the room pauses, the player becomes unavailable, or the
-submission conflicts, the pending selection is cleared and no pick is recorded.
+If the authoritative deadline expires first, the slot-resolution function
+automatically commits the staged player when the player remains available and
+eligible. No staged player, or a staged player that became unavailable, produces
+a recorded timeout skip.
+
+If the turn changes, the staged selection belongs to a displaced history branch,
+or the selection conflicts before the deadline, it is cleared and no pick is
+recorded from that staged selection.
 
 ### Finality
 
@@ -214,7 +228,7 @@ workflow will be specified separately.
 
 - Add and seed `divisions.draft_tier`.
 - Add and backfill `draft_picks.season_id`.
-- Add relational and season-player uniqueness constraints.
+- Add relational and canonical season-player uniqueness constraints.
 - Update `submit_draft_pick` with the one-tier eligibility rule.
 - Enforce one active-or-paused room per season.
 - Add database contract and concurrency tests.
@@ -247,7 +261,9 @@ workflow will be specified separately.
    lower division.
 10. Free text that does not resolve to a real eligible player cannot be
     submitted.
-11. Selecting a player never commits without explicit confirmation.
+11. Selecting a player stages it without immediate commitment; explicit
+    confirmation commits immediately, and deadline expiration commits a valid
+    staged player automatically.
 12. A confirmed lower-division pick cannot be poached by a later higher-division
     draft.
 13. No more than one room per season can be active or paused.
