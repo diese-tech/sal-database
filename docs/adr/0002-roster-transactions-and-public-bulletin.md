@@ -5,6 +5,7 @@
 - Owners: SAL database and SAL site maintainers
 - Related ADRs:
   - [ADR-0001: Season-Scoped Captain-Roster Draft Eligibility](0001-season-scoped-captain-roster-draft-eligibility.md)
+  - [ADR-009: Roster Transactions Discord Workflow](https://github.com/diese-tech/lab-salbot/blob/main/docs/adrs/ADR-009-roster-transactions-discord-workflow.md)
 - Related findings: DE-00
 - Related issues: diese-tech/sal-site#210
 
@@ -32,7 +33,9 @@ reasons, sanctions, pending negotiations, rejected requests, or approval
 metadata.
 
 The canonical transaction record belongs in `sal-database`. `sal-site` owns the
-captain and administrator workflows and the public bulletin projection.
+captain and administrator web workflows and the public web bulletin projection.
+`lab-salbot` owns the Discord command, consent, administrator-review, role
+synchronization, and transactions-channel projections defined by ADR-009.
 
 ## Decision
 
@@ -286,6 +289,33 @@ Execution must:
 
 If any validation fails, no roster or draft-order mutation commits.
 
+### Discord role synchronization
+
+A completed roster transaction emits durable role-synchronization work through
+the operation outbox.
+
+Role changes follow the resulting canonical season roster:
+
+- a claim adds the claiming organization's Discord role to the player;
+- a drop removes the releasing organization's Discord role from the player;
+- a trade removes each moved player's former organization role and adds the
+  receiving organization role;
+- a reversal reconciles every affected player's roles to the resulting canonical
+  roster; and
+- a Draft Position Swap does not change player roles.
+
+The database transaction commits before Discord role synchronization begins.
+Discord permissions, availability, or API failures never roll back a valid
+database transaction.
+
+Role synchronization is idempotent and retryable. A failed role update remains
+pending or failed for reconciliation and posts an alert to the private
+administrator channel. The alert identifies the transaction and affected player
+without exposing private administrative reasons publicly.
+
+The public transaction bulletin may still publish while role synchronization is
+pending because it represents the committed canonical roster state.
+
 ### Public transactions bulletin
 
 `sal-site` will expose a public transactions bulletin containing only:
@@ -366,7 +396,9 @@ Private reversal reasons remain in the administrative audit record.
 - Counteroffers and revoked consent cannot execute stale proposals.
 - Public transaction history remains concise and understandable.
 - Private sanctions and administrative reasoning are not exposed publicly.
-- The existing outbox can project transactions to additional consumers later.
+- The existing durable outbox projects completed transactions to the web
+  bulletin, the consolidated Discord transactions channel, and Discord role
+  synchronization.
 
 ### Negative
 
@@ -409,6 +441,32 @@ Private reversal reasons remain in the administrative audit record.
 - Add route, state-machine, integration, concurrency, and end-to-end tests.
 - Link its audit and architecture documentation to this canonical ADR.
 
+### `diese-tech/lab-salbot`
+
+- Adopt the transaction and outbox contracts published by `sal-database`.
+- Implement the ephemeral claim, drop, trade, counteroffer, withdrawal, and
+  Draft Position Swap command workflows defined by ADR-009.
+- Keep all transaction setup, selection, validation, counteroffer, and review
+  interactions ephemeral until the captain explicitly submits or posts them.
+- Post public trade proposals only after the initiating captain selects
+  **Post Proposal**.
+- Route accepted proposals and submitted roster mutations to the private
+  administrator-review channel.
+- Consume transaction and role-synchronization outbox events through a
+  lease-based worker.
+- Reconcile affected players' Discord organization roles to the resulting
+  canonical season rosters after claims, drops, trades, and reversals.
+- Treat role synchronization as idempotent, retryable follow-up work that cannot
+  roll back a committed database transaction.
+- Post failed role-synchronization alerts to the private administrator channel
+  for reconciliation.
+- Publish completed transactions once to the consolidated Discord transactions
+  channel.
+- Use the division chip and canonical organization tags in mobile-safe
+  transaction messages.
+- Record delivery idempotency so retries cannot duplicate public messages.
+- Link its Discord workflow documentation to this canonical database ADR.
+
 ## Acceptance criteria
 
 1. No transaction mutates a roster or draft order before required approval.
@@ -437,3 +495,14 @@ Private reversal reasons remain in the administrative audit record.
 22. Pending and unsuccessful transactions never appear publicly.
 23. Reversals preserve and link the original public transaction.
 24. Cross-division captain trades are rejected at the database boundary.
+25. Every completed transaction is available to both web and Discord bulletin
+    consumers through the durable outbox.
+26. Discord delivery retries cannot create duplicate transaction posts.
+27. Incomplete or unposted Discord transaction workflows create no public
+    proposal or completed-transaction message.
+28. Claims, drops, trades, and reversals enqueue Discord role synchronization
+    matching the resulting canonical season rosters.
+29. Draft Position Swaps never change player organization roles.
+30. Discord role failures never roll back completed database transactions.
+31. Failed role synchronization remains retryable and posts an actionable alert
+    to the private administrator channel.
