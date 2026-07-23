@@ -7,6 +7,7 @@
   - [ADR-0001: Season-Scoped Captain-Roster Draft Eligibility](0001-season-scoped-captain-roster-draft-eligibility.md)
   - [ADR-0002: Roster Transactions and Public Bulletin](0002-roster-transactions-and-public-bulletin.md)
   - [ADR-009: Roster Transactions Discord Workflow](https://github.com/diese-tech/lab-salbot/blob/main/docs/adrs/ADR-009-roster-transactions-discord-workflow.md)
+  - [SAL Site ADR-0001: Audience-Specific Draft Views and Production Board](https://github.com/diese-tech/sal-site/blob/main/docs/adr/0001-audience-specific-draft-views-and-production-board.md)
 - Related findings: DE-00, DE-02, DE-03, DE-06
 - Related issues:
   - diese-tech/sal-site#207
@@ -30,6 +31,10 @@ handling:
 - Discord OAuth outages;
 - timer expiration;
 - configuration changes;
+- repeatable draft-history undo and redo;
+- audience-specific projections;
+- caster and production authorization;
+- revocable broadcast overlays;
 - role-based captain replacement;
 - atomic roster publication; and
 - recovery from incomplete finalization.
@@ -46,8 +51,8 @@ Each draft room belongs to exactly one season and one division.
 Only one room in `pending`, `open`, `active`, `paused`, or `recovery_paused`
 state may exist for a season and division.
 
-Only one room in a season may be `active`, `paused`, or `recovery_paused` at a
-time.
+Only one room in a season may be `active`, `paused`, `recovery_paused`, or
+`completion_review` at a time.
 
 Division drafts may run in any order. The expected operational order is normally
 Terra, Solar, then Lunar, but the system does not hard-code that order.
@@ -135,6 +140,7 @@ Draft rooms use explicit states:
 - `active`;
 - `paused`;
 - `recovery_paused`;
+- `completion_review`;
 - `complete`;
 - `voided`; and
 - `replaced`.
@@ -211,6 +217,34 @@ Multiple people may be authorized for one organization seat. The database
 serializes their actions, so only one conflicting pick or skip can succeed.
 
 Removing a required Discord role revokes access when authorization refreshes.
+
+### Staff authorization and broadcast overlays
+
+Caster and production staff authenticate through Discord OAuth.
+
+The database owns audited mappings for:
+
+- the configured Caster Discord role; and
+- the configured Production Discord role.
+
+These mappings grant only the read-only production projection defined by SAL
+Site ADR-0001. They do not grant captain or administrator mutations.
+
+The database also owns broadcast-overlay credentials.
+
+Each overlay credential is:
+
+- stored only as a cryptographic hash;
+- bound to one draft room;
+- restricted to the broadcast-safe projection;
+- assigned an expiration;
+- revocable;
+- rotatable;
+- invalid after room conclusion; and
+- privately audited.
+
+Plaintext overlay credentials are returned only when generated and are never
+stored.
 
 ### Discord OAuth outage and emergency access
 
@@ -328,7 +362,7 @@ The function:
 6. records exactly one resolution for the slot;
 7. advances the draft exactly once;
 8. records the next authoritative deadline when another slot exists; and
-9. triggers finalization when the final slot is resolved.
+9. enters `completion_review` when the final slot is resolved.
 
 A pick and skip racing for the same slot cannot both succeed.
 
@@ -375,6 +409,53 @@ authoritative room state.
 
 A stale browser cannot submit against a slot that advanced during the
 disconnect.
+
+### Repeatable undo and redo
+
+Administrators may navigate canonical draft history while the room is paused or
+in `completion_review`.
+
+Each **Undo Resolution** action:
+
+1. identifies the latest canonical pick or skip;
+2. appends a linked reversal event;
+3. marks that resolution non-canonical without deleting it;
+4. releases a reversed picked player back to the eligible pool;
+5. removes a reversed skipped-slot vacancy;
+6. moves the canonical current slot backward;
+7. clears staged selections for displaced later slots;
+8. records the acting administrator; and
+9. records an optional but encouraged private reason.
+
+Administrators may repeat Undo Resolution back to the first resolved slot.
+
+Undoing from `completion_review` returns the room to `paused`.
+
+Each **Redo Resolution** action:
+
+1. identifies the next resolution on the abandoned canonical branch;
+2. revalidates player availability, eligibility, room configuration, and slot;
+3. appends a linked redo event;
+4. restores the resolution only when it remains valid; and
+5. advances the canonical current slot.
+
+Administrators may repeat Redo Resolution while the room remains paused and no
+new staged selection, pick, or skip has created a new canonical branch.
+
+If a prior resolution is no longer valid, redo stops and reports the conflict.
+
+After a new staged selection, pick, or skip creates a new branch, the abandoned
+branch remains in immutable audit history but cannot become canonical again.
+
+No pick timer runs while administrators navigate history.
+
+Resuming after undo restores the full configured pick timer for the reopened
+slot.
+
+Public-safe correction events update spectator and production ledgers. Canonical
+team cards and current-slot calculations use only the active history branch.
+
+Private undo and redo reasons are never included in public projections.
 
 ### Realtime degradation
 
@@ -424,41 +505,60 @@ applies.
 
 An individual captain's device or internet failure is not a platform outage.
 
-### Atomic completion and roster publication
+### Completion review and atomic roster publication
 
-Resolving the final slot invokes the shared idempotent finalization function in
-the same authoritative workflow.
+Resolving the final slot moves the room into `completion_review`.
+
+During `completion_review`:
+
+- pick and skip submissions stop;
+- no pick timer runs;
+- canonical season rosters remain unpublished;
+- administrators review every pick, skip, vacancy, and resulting roster;
+- administrators may repeatedly undo and redo; and
+- private reminders continue until an administrator concludes the room.
+
+An authorized administrator concludes the room with:
+
+**End Draft & Publish Rosters**
+
+The action requires explicit confirmation. A private reason is not required.
+
+End Draft invokes the shared idempotent finalization function.
 
 Finalization:
 
 1. locks the room;
-2. verifies every draft slot is resolved by a pick or recorded skip;
-3. verifies the immutable configuration snapshot;
-4. revalidates every selected player;
-5. publishes every completed pick to canonical `season_rosters` atomically;
-6. preserves skipped slots as roster vacancies;
-7. marks the room complete;
-8. records completion and publication timestamps;
-9. appends the immutable audit result; and
-10. enqueues one durable division draft-conclusion event.
+2. verifies the room is in `completion_review`;
+3. verifies every draft slot is resolved by a canonical pick or recorded skip;
+4. verifies the immutable configuration snapshot;
+5. revalidates every canonical selected player;
+6. publishes every canonical pick to `season_rosters` atomically;
+7. preserves skipped slots as roster vacancies;
+8. marks the room complete;
+9. records completion and publication timestamps;
+10. permanently closes undo and redo;
+11. appends the immutable audit result; and
+12. enqueues one durable division draft-conclusion event.
 
 Normal draft picks do not create individual public transactions-channel entries.
 
 The draft-conclusion event follows ADR-009 and links to the canonical division
 roster page.
 
-No captain or spectator client publishes rosters.
+No captain, spectator, caster, production client, or overlay publishes rosters.
 
 ### Recovery-only finalization
 
-Administrators receive a `Finalize Draft` recovery action only when:
+Administrators receive a recovery finalization action only when:
 
-- every slot is resolved;
+- every slot has a canonical resolution;
+- the room reached `completion_review`;
 - canonical publication remains incomplete; and
 - the room is eligible for idempotent recovery.
 
-The action calls the same finalization function used by automatic completion. It
-does not maintain a second publication path.
+The action calls the same finalization function used by **End Draft & Publish
+Rosters**. It does not maintain a second publication path.
 
 It refuses to publish while any slot is unresolved.
 
@@ -483,6 +583,11 @@ Every recovery-finalization attempt is audited.
 - Realtime transport failures degrade without becoming data-integrity failures.
 - Verified platform outages do not unfairly forfeit an active pick.
 - Roster publication and draft conclusion become idempotent and recoverable.
+- Administrators can repeatedly undo and redo draft history without deleting
+  audit evidence.
+- Production receives an explicit review boundary before roster publication.
+- Caster, Production, and overlay authorization use canonical audited mappings
+  and credentials.
 
 ### Negative
 
@@ -497,6 +602,11 @@ Every recovery-finalization attempt is audited.
   disconnect warrants a manual pause.
 - A staged player becoming unavailable before timeout still results in a skipped
   slot.
+- Explicit End Draft publication can remain pending if administrators leave the
+  room in completion review.
+- Repeatable undo and redo require an event-backed canonical history model.
+- Rewinding clears displaced staged selections and may require captains to
+  reselect players.
 
 ## Implementation ownership
 
@@ -511,7 +621,14 @@ Every recovery-finalization attempt is audited.
 - Add authoritative deadlines and stored pause remainder.
 - Add room lifecycle, void, replacement, and recovery states.
 - Add service-outage recovery evidence and transitions.
-- Add idempotent finalization and atomic `season_rosters` publication.
+- Add event-backed canonical history branches for repeatable undo and redo.
+- Add public-safe correction events.
+- Add `completion_review` to the room lifecycle.
+- Add canonical Caster and Production Discord role mappings.
+- Add hashed, room-scoped, expiring, revocable overlay credentials.
+- Attribute administrator-submitted emergency picks.
+- Add idempotent End Draft finalization and atomic `season_rosters`
+  publication from `completion_review`.
 - Add durable draft-conclusion outbox events.
 - Add deterministic locking, concurrency, timeout, and recovery tests.
 - Publish updated immutable consumer types and a database release.
@@ -527,6 +644,13 @@ Every recovery-finalization attempt is audited.
 - Authorize organization seats through division-captain and organization roles.
 - Implement emergency captain access codes.
 - Persist and clearly label staged player selections.
+- Implement server-authorized spectator, captain, administrator, production, and
+  overlay projections according to SAL Site ADR-0001.
+- Implement repeatable Undo Resolution and Redo Resolution controls.
+- Implement the completion-review summary and End Draft & Publish Rosters
+  confirmation.
+- Implement administrator-submitted emergency picks.
+- Implement the responsive 1920×1080 production board and secure overlay access.
 - Implement realtime-to-polling degradation.
 - Show captain presence, readiness, reconnect, degraded connection, and recovery
   states.
@@ -540,9 +664,11 @@ Every recovery-finalization attempt is audited.
 - Add audited commands for division-captain-role mappings.
 - Add audited commands for organization-role mappings.
 - Keep ordinary player division-role mappings separate.
+- Add audited commands for Caster and Production role mappings.
 - Support authorization refresh and role-change invalidation where bot events are
   used.
 - Retry draft-conclusion delivery according to ADR-009.
+- Deliver draft-conclusion events only after End Draft publication succeeds.
 - Link Discord operations documentation to this ADR.
 
 ## Acceptance criteria
@@ -595,13 +721,30 @@ Every recovery-finalization attempt is audited.
     instead of a forfeiture.
 41. Individual captain connectivity failures do not trigger platform-outage
     protection.
-42. Every resolved final slot invokes the shared finalization function.
-43. Finalization publishes all picks to `season_rosters` atomically.
-44. Skipped slots publish as roster vacancies.
-45. Finalization emits exactly one durable division conclusion event.
-46. Normal draft picks do not create individual transactions-channel entries.
-47. Recovery finalization is visible only for resolved but incompletely published
-    rooms.
-48. Automatic and recovery finalization use the same idempotent database
-    function.
-49. An already-finalized room returns its existing finalization result safely.
+42. Administrators may repeatedly undo canonical resolutions while paused or in
+    completion review.
+43. Every undo appends a reversal event and preserves the original resolution.
+44. Reversed picks release their players and reversed skips remove their
+    vacancies.
+45. Undo clears staged selections belonging to displaced later slots.
+46. Administrators may redo valid abandoned resolutions before a new canonical
+    branch is created.
+47. Redo stops when the prior resolution is no longer valid.
+48. Private undo and redo reasons are optional but encouraged.
+49. Public projections show correction events without private reasons.
+50. Resolving the final slot enters `completion_review`.
+51. Season rosters remain unpublished during completion review.
+52. End Draft & Publish Rosters requires explicit administrator confirmation.
+53. End Draft invokes the shared idempotent finalization function.
+54. Finalization publishes all canonical picks to `season_rosters` atomically.
+55. Skipped slots publish as roster vacancies.
+56. Successful publication permanently closes undo and redo.
+57. Finalization emits exactly one durable division conclusion event.
+58. Normal draft picks do not create individual transactions-channel entries.
+59. Recovery and normal End Draft publication use the same database function.
+60. An already-finalized room returns its existing finalization result safely.
+61. Caster and Production role mappings are canonical and audited.
+62. Overlay credentials are hashed, room-bound, expiring, revocable, and invalid
+    after conclusion.
+63. Administrator-submitted emergency picks use the same atomic slot-resolution
+    invariants as captain picks.
