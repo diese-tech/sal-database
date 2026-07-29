@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { validateBaselineAdoption } from '../scripts/baseline-adoption.mjs';
 import { normalizeGeneratedTypes } from '../scripts/normalize-generated-types.mjs';
+import { normalizeMigrationPlan } from '../scripts/normalize-migration-plan.mjs';
 import { assertProductionTestSqlIsReadOnly } from '../scripts/production-test-contract.mjs';
 import {
   countSqlSeedRows,
@@ -56,6 +57,19 @@ test('keeps baseline adoption pinned while allowing forward contract releases', 
 test('normalizes generated types to exactly one trailing newline', () => {
   assert.equal(normalizeGeneratedTypes('export type Database = {}\n\n'), 'export type Database = {}\n');
   assert.equal(normalizeGeneratedTypes('export type Database = {}'), 'export type Database = {}\n');
+});
+
+test('normalizes non-semantic Supabase upgrade banners out of deploy plans', () => {
+  assert.equal(
+    normalizeMigrationPlan(
+      'DRY RUN: migrations will *not* be pushed to the database.\r\n'
+        + '\u001b[33mA new version of Supabase CLI is available: v2.110.0 (currently installed v2.109.1)\u001b[0m\r\n'
+        + 'We recommend updating regularly for new features and bug fixes: https://supabase.com/docs\r\n'
+        + 'Would push these migrations:\r\n • 20260729063500_scouter_engine.sql\r\n',
+    ),
+    'DRY RUN: migrations will *not* be pushed to the database.\n'
+      + 'Would push these migrations:\n • 20260729063500_scouter_engine.sql\n',
+  );
 });
 
 test('accepts read-only production contract assertions', () => {
