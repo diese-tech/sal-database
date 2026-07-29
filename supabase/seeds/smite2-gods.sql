@@ -30,6 +30,7 @@ insert into public.gods (id, name, class, god_class) values
   ('charon', 'Charon', 'Guardian', 'Magical'),
   ('chiron', 'Chiron', 'Hunter', 'Physical'),
   ('chronos', 'Chronos', 'Mage', 'Magical'),
+  ('cu-chulainn', 'Cu Chulainn', 'Warrior', 'Physical'),
   ('cupid', 'Cupid', 'Hunter', 'Physical'),
   ('da-ji', 'Da Ji', 'Assassin', 'Physical'),
   ('danzaburou', 'Danzaburou', 'Hunter', 'Physical'),
@@ -87,6 +88,7 @@ insert into public.gods (id, name, class, god_class) values
   ('ullr', 'Ullr', 'Hunter', 'Physical'),
   ('vulcan', 'Vulcan', 'Mage', 'Magical'),
   ('xbalanque', 'Xbalanque', 'Hunter', 'Physical'),
+  ('xing-tian', 'Xing Tian', 'Guardian', 'Magical'),
   ('yemoja', 'Yemoja', 'Guardian', 'Magical'),
   ('ymir', 'Ymir', 'Guardian', 'Magical'),
   ('zeus', 'Zeus', 'Mage', 'Magical')
