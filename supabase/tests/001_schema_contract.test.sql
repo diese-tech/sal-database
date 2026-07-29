@@ -6,11 +6,11 @@ SET LOCAL search_path TO extensions, public, pg_catalog;
 SELECT plan(20);
 
 SELECT ok(
-  (SELECT count(*) = 32
+  (SELECT count(*) = 35
    FROM pg_class c
    JOIN pg_namespace n ON n.oid = c.relnamespace
    WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')),
-  'the contract contains all 32 application tables'
+  'the contract contains all 35 application tables'
 );
 SELECT ok(to_regclass('public.players') IS NOT NULL, 'players exists');
 SELECT ok(to_regclass('public.matches') IS NOT NULL, 'matches exists');

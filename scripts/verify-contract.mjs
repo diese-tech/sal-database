@@ -23,6 +23,7 @@ const requiredDatabaseTests = [
   '008_transactional_decisions_outbox.test.sql',
   '009_site_review_decisions.test.sql',
   '010_site_review_concurrency.test.sql',
+  '011_scouter_engine.test.sql',
 ];
 const hash = `sha256:${createHash('sha256').update(types).digest('hex')}`;
 const databaseMajorVersion = readDatabaseMajorVersion();
