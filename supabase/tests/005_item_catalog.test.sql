@@ -68,10 +68,10 @@ SELECT ok(
 
 SELECT ok(
   (
-    SELECT count(*) = 260
-      AND count(*) FILTER (WHERE active) = 260
-      AND count(*) FILTER (WHERE source_url ~ '^https://www[.]smitefire[.]com/smite/item/') = 260
-      AND count(*) FILTER (WHERE source_updated_at = '2026-06-30T15:41:28.712Z'::timestamptz) = 260
+    SELECT count(*) = 265
+      AND count(*) FILTER (WHERE active) = 265
+      AND count(*) FILTER (WHERE source_url ~ '^https://www[.]smitefire[.]com/smite/item/') = 265
+      AND count(*) FILTER (WHERE source_updated_at = '2026-07-29T15:19:05.553Z'::timestamptz) = 265
     FROM public.items
   ),
   'the deterministic seed contains the 260-item active catalog'
