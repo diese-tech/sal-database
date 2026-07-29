@@ -117,7 +117,8 @@ jobs:
           set -o pipefail
           npx supabase migration list --linked --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-list-before.txt
           node scripts/normalize-migration-state.mjs migration-list-before.txt > migration-state.txt
-          npx supabase db push --linked --dry-run --yes --include-seed --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-plan.txt
+          npx supabase db push --linked --dry-run --yes --include-seed --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-plan.raw.txt
+          node scripts/normalize-migration-plan.mjs migration-plan.raw.txt migration-plan.txt
           sha256sum migration-plan.txt > migration-plan.sha256
           echo "sha256=$(cut -d ' ' -f1 migration-plan.sha256)" >> "$GITHUB_OUTPUT"
           {
@@ -137,6 +138,7 @@ jobs:
           path: |
             migration-list-before.txt
             migration-state.txt
+            migration-plan.raw.txt
             migration-plan.txt
             migration-plan.sha256
           if-no-files-found: error
@@ -198,7 +200,8 @@ jobs:
           npx supabase migration list --linked --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-list-current.txt
           node scripts/normalize-migration-state.mjs migration-list-current.txt > migration-state-current.txt
           diff --unified approved-plan/migration-state.txt migration-state-current.txt
-          npx supabase db push --linked --dry-run --yes --include-seed --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-plan-current.txt
+          npx supabase db push --linked --dry-run --yes --include-seed --password "${SUPABASE_DB_PASSWORD}" 2>&1 | tee migration-plan-current.raw.txt
+          node scripts/normalize-migration-plan.mjs migration-plan-current.raw.txt migration-plan-current.txt
           echo "${APPROVED_PLAN_SHA256}  migration-plan-current.txt" | sha256sum --check -
           diff --unified approved-plan/migration-plan.txt migration-plan-current.txt
       - name: Apply forward migrations
@@ -252,6 +255,7 @@ jobs:
           name: production-database-verification-${{ github.run_id }}
           path: |
             migration-list-current.txt
+            migration-plan-current.raw.txt
             migration-plan-current.txt
             migration-list-after.txt
             post-push-plan.txt
