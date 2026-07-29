@@ -2,14 +2,73 @@ BEGIN;
 
 SET LOCAL search_path TO extensions, public, storage, pg_catalog;
 
-SELECT plan(35);
+SELECT plan(42);
 
 SELECT ok(
-  (SELECT count(*) = 32
+  (SELECT count(*) = 35
    FROM pg_class c
    JOIN pg_namespace n ON n.oid = c.relnamespace
    WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')),
   'the released public table set is exact'
+);
+
+SELECT has_table('public', 'scouter_matches', 'the scouter match table is deployed');
+SELECT has_table('public', 'scouter_games', 'the scouter game table is deployed');
+SELECT has_table(
+  'public', 'scouter_game_participants', 'the scouter participant table is deployed'
+);
+SELECT ok(
+  (
+    SELECT bool_and(c.relrowsecurity)
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname IN ('scouter_matches', 'scouter_games', 'scouter_game_participants')
+  ),
+  'RLS is enabled on every scouter table'
+);
+SELECT ok(
+  NOT EXISTS (
+    SELECT 1
+    FROM unnest(ARRAY[
+      'public.scouter_matches',
+      'public.scouter_games',
+      'public.scouter_game_participants'
+    ]) AS scouter_table(name)
+    WHERE NOT has_table_privilege('anon', scouter_table.name, 'SELECT')
+      OR NOT has_table_privilege('authenticated', scouter_table.name, 'SELECT')
+  ),
+  'client roles can read every scouter table'
+);
+SELECT ok(
+  NOT EXISTS (
+    SELECT 1
+    FROM unnest(ARRAY[
+      'public.scouter_matches',
+      'public.scouter_games',
+      'public.scouter_game_participants'
+    ]) AS scouter_table(name)
+    WHERE has_table_privilege('anon', scouter_table.name, 'INSERT,UPDATE,DELETE')
+      OR has_table_privilege('authenticated', scouter_table.name, 'INSERT,UPDATE,DELETE')
+  ),
+  'client roles cannot mutate scouter tables directly'
+);
+SELECT ok(
+  NOT EXISTS (
+    SELECT 1
+    FROM unnest(ARRAY[
+      'public.scouter_matches',
+      'public.scouter_games',
+      'public.scouter_game_participants'
+    ]) AS scouter_table(name)
+    WHERE NOT (
+      has_table_privilege('service_role', scouter_table.name, 'INSERT')
+      AND has_table_privilege('service_role', scouter_table.name, 'SELECT')
+      AND has_table_privilege('service_role', scouter_table.name, 'UPDATE')
+      AND has_table_privilege('service_role', scouter_table.name, 'DELETE')
+    )
+  ),
+  'service_role owns the scouter write boundary'
 );
 SELECT ok(
   (SELECT count(*) <= 1 FROM public.seasons WHERE is_current),
