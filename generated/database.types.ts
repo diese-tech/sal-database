@@ -1966,6 +1966,22 @@ export type Database = {
         }
         Returns: Json
       }
+      ingest_scouter_game: {
+        Args: {
+          p_details_image_path: string
+          p_game_mode?: string
+          p_game_ordinal: number
+          p_hosted_by_discord_id: string
+          p_match_length_seconds?: number
+          p_participants: Json
+          p_scoreboard_image_path: string
+          p_scouter_match_id?: string
+          p_season_id: string
+          p_smite_match_id?: string
+          p_winning_side?: string
+        }
+        Returns: Json
+      }
       replace_match_report_stats: {
         Args: { p_match_report_id: string; p_rows: Json }
         Returns: undefined
