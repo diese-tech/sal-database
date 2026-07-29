@@ -10,10 +10,10 @@ CREATE OR REPLACE FUNCTION public.ingest_scouter_game(
   p_scoreboard_image_path text,
   p_details_image_path text,
   p_participants jsonb,
+  p_winning_side text,
   p_scouter_match_id text DEFAULT NULL,
   p_smite_match_id text DEFAULT NULL,
   p_game_mode text DEFAULT NULL,
-  p_winning_side text DEFAULT NULL,
   p_match_length_seconds integer DEFAULT NULL
 ) RETURNS jsonb
 LANGUAGE plpgsql

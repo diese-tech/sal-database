@@ -70,10 +70,10 @@ SELECT public.ingest_scouter_game(
   'scouters/rpc/scoreboard-1.png',
   'scouters/rpc/details-1.png',
   pg_temp.scouter_test_participants(),
+  'order',
   NULL,
   'scouter-rpc-smite-1',
   'Conquest',
-  'order',
   1800
 ) AS result;
 
@@ -133,10 +133,10 @@ SELECT public.ingest_scouter_game(
   'scouters/rpc/retry-scoreboard.png',
   'scouters/rpc/retry-details.png',
   pg_temp.scouter_test_participants(),
+  'order',
   NULL,
   'scouter-rpc-smite-1',
   'Conquest',
-  'order',
   1800
 ) AS result;
 
@@ -161,10 +161,10 @@ SELECT public.ingest_scouter_game(
   'scouters/rpc/scoreboard-2.png',
   'scouters/rpc/details-2.png',
   pg_temp.scouter_test_participants(),
+  'chaos',
   (SELECT result ->> 'scouterMatchId' FROM scouter_rpc_first_result),
   'scouter-rpc-smite-2',
   'Conquest',
-  'chaos',
   1900
 ) AS result;
 
@@ -181,8 +181,8 @@ SELECT throws_ok(
     $$SELECT public.ingest_scouter_game(
       'scouter-rpc-season', 'different-host', 3,
       'scouters/rpc/scoreboard-3.png', 'scouters/rpc/details-3.png',
-      pg_temp.scouter_test_participants(), %L, 'scouter-rpc-smite-3',
-      'Conquest', 'order', 1700
+      pg_temp.scouter_test_participants(), 'order', %L,
+      'scouter-rpc-smite-3', 'Conquest', 1700
     )$$,
     (SELECT result ->> 'scouterMatchId' FROM scouter_rpc_first_result)
   ),
@@ -211,8 +211,8 @@ SELECT throws_ok(
   $$SELECT public.ingest_scouter_game(
     'scouter-rpc-season', 'scouter-rollback-host', 1,
     'scouters/rpc/rollback-scoreboard.png', 'scouters/rpc/rollback-details.png',
-    pg_temp.scouter_test_participants(), NULL, 'scouter-rpc-rollback',
-    'Conquest', 'order', 1600
+    pg_temp.scouter_test_participants(), 'order', NULL,
+    'scouter-rpc-rollback', 'Conquest', 1600
   )$$,
   'P0001',
   'forced scouter audit failure',

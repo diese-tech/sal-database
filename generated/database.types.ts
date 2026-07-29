@@ -1978,7 +1978,7 @@ export type Database = {
           p_scouter_match_id?: string
           p_season_id: string
           p_smite_match_id?: string
-          p_winning_side?: string
+          p_winning_side: string
         }
         Returns: Json
       }
