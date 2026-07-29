@@ -61,8 +61,11 @@ SELECT ok(
       'public.scouter_games',
       'public.scouter_game_participants'
     ]) AS scouter_table(name)
-    WHERE NOT has_table_privilege(
-      'service_role', scouter_table.name, 'INSERT,SELECT,UPDATE,DELETE'
+    WHERE NOT (
+      has_table_privilege('service_role', scouter_table.name, 'INSERT')
+      AND has_table_privilege('service_role', scouter_table.name, 'SELECT')
+      AND has_table_privilege('service_role', scouter_table.name, 'UPDATE')
+      AND has_table_privilege('service_role', scouter_table.name, 'DELETE')
     )
   ),
   'service_role owns the scouter write boundary'
