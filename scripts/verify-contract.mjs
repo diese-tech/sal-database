@@ -23,6 +23,8 @@ const requiredDatabaseTests = [
   '008_transactional_decisions_outbox.test.sql',
   '009_site_review_decisions.test.sql',
   '010_site_review_concurrency.test.sql',
+  '011_scouter_engine.test.sql',
+  '012_scouter_ingest_rpc.test.sql',
 ];
 const hash = `sha256:${createHash('sha256').update(types).digest('hex')}`;
 const databaseMajorVersion = readDatabaseMajorVersion();
@@ -58,8 +60,8 @@ if (missingDatabaseTests.length !== 0) {
 if (contract.typesSha256 !== hash) {
   throw new Error(`Generated type hash mismatch: expected ${contract.typesSha256}, received ${hash}.`);
 }
-if (countSqlSeedRows(godSeed) !== 86) {
-  throw new Error('The reviewed local SMITE god seed must contain exactly 86 rows.');
+if (countSqlSeedRows(godSeed) !== 88) {
+  throw new Error('The reviewed local SMITE god seed must contain exactly 88 rows.');
 }
 if (!usesIdentityPreservingNameUpsert(godSeed)) {
   throw new Error('The SMITE god seed must reconcile by unique name without replacing historical IDs.');

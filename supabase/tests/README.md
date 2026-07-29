@@ -23,6 +23,11 @@ The database contract includes these pgTAP suites:
 - `010_site_review_concurrency.test.sql` for independent-session registration
   and match-report races that prove one mutation, one audit pair, and one
   idempotent terminal result.
+- `011_scouter_engine.test.sql` for season-scoped scouter tables, constraints,
+  idempotency, cascade behavior, correction metadata, indexes, and access boundaries.
+- `012_scouter_ingest_rpc.test.sql` for atomic scouter ingestion, service-role
+  access, identity linking, match grouping, idempotency, audit logging, and
+  forced-failure rollback.
 
 A `contract.json` is rejected until all required suites exist. CI runs
 them against a clean local reset, and the protected deployment runs them
