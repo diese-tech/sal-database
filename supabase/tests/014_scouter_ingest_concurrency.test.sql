@@ -79,8 +79,21 @@ SELECT format(
   1800
 ) AS sql;
 
-SELECT extensions.dblink_connect('scouter_conc_a', 'dbname=' || current_database());
-SELECT extensions.dblink_connect('scouter_conc_b', 'dbname=' || current_database());
+-- Supabase's local dev Postgres requires password auth even for local
+-- connections (unlike a bare local install's peer/trust defaults), so the
+-- conninfo needs explicit credentials. `postgres`/`postgres` is the CLI's
+-- documented local dev default (see the "Publishable"/"Secret Key" panel
+-- `supabase start` prints, and the standard 127.0.0.1:54322 connection
+-- string) — this suite only ever runs against `supabase test db --local`,
+-- never a linked/production database, so this is not a production secret.
+SELECT extensions.dblink_connect(
+  'scouter_conc_a',
+  'dbname=' || current_database() || ' user=postgres password=postgres'
+);
+SELECT extensions.dblink_connect(
+  'scouter_conc_b',
+  'dbname=' || current_database() || ' user=postgres password=postgres'
+);
 
 -- Caller A: open an explicit transaction and run the ingest call inside it
 -- synchronously. It's the first to reach the advisory lock, so this
