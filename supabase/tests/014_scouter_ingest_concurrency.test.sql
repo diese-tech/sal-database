@@ -10,16 +10,29 @@
 -- button or a client retrying after a slow response — the exact scenario the
 -- advisory lock exists to protect against.
 --
+-- Two backends merely sending queries back-to-back doesn't guarantee they
+-- actually overlap — if the first finishes before the second starts, every
+-- assertion below would still pass with the advisory lock deleted entirely.
+-- So caller A opens an explicit transaction and holds the lock deliberately;
+-- caller B is only allowed to proceed once pg_locks shows it genuinely
+-- blocked waiting on that lock, which is then confirmed as its own
+-- assertion, not just an internal timing assumption.
+--
 -- Because dblink opens independent connections, this file cannot rely on the
 -- usual BEGIN/ROLLBACK-per-file convention (a second backend cannot see this
 -- session's uncommitted rows). Setup is committed for real and torn down
--- explicitly at the end instead.
+-- explicitly at the end instead. dblink itself is installed into the
+-- `extensions` schema (matching pgtap/pgcrypto/etc. below) rather than the
+-- default `public` — CI generates and diffs public-schema types immediately
+-- after this suite runs, and a public-schema dblink would leak its
+-- dblink_*/dblink_pkey_results objects into that contract. It's dropped
+-- again during cleanup so this file leaves no trace either way.
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-CREATE EXTENSION IF NOT EXISTS dblink;
+CREATE EXTENSION IF NOT EXISTS dblink WITH SCHEMA extensions;
 SET search_path TO extensions, public, pg_catalog;
 
-SELECT plan(6);
+SELECT plan(7);
 
 INSERT INTO public.seasons (id, name, status, start_date, end_date, is_current)
 VALUES ('scouter-conc-season', 'Scouter Concurrency Season', 'pre-season', '2026-07-01', '2026-08-31', false)
@@ -66,22 +79,57 @@ SELECT format(
   1800
 ) AS sql;
 
-SELECT dblink_connect('scouter_conc_a', 'dbname=' || current_database());
-SELECT dblink_connect('scouter_conc_b', 'dbname=' || current_database());
+SELECT extensions.dblink_connect('scouter_conc_a', 'dbname=' || current_database());
+SELECT extensions.dblink_connect('scouter_conc_b', 'dbname=' || current_database());
 
--- Fire both requests back-to-back, without waiting on either — this is two
--- real backends racing for the same advisory lock at (as close as a script
--- can get to) the same instant.
-SELECT dblink_send_query('scouter_conc_a', (SELECT sql FROM scouter_conc_call_sql));
-SELECT dblink_send_query('scouter_conc_b', (SELECT sql FROM scouter_conc_call_sql));
-
+-- Caller A: open an explicit transaction and run the ingest call inside it
+-- synchronously. It's the first to reach the advisory lock, so this
+-- completes immediately — but the lock isn't released until A commits,
+-- which we deliberately withhold below.
+SELECT extensions.dblink_exec('scouter_conc_a', 'BEGIN');
 CREATE TEMP TABLE scouter_conc_result_a AS
-SELECT result FROM dblink_get_result('scouter_conc_a') AS t(result jsonb);
-CREATE TEMP TABLE scouter_conc_result_b AS
-SELECT result FROM dblink_get_result('scouter_conc_b') AS t(result jsonb);
+SELECT result FROM extensions.dblink(
+  'scouter_conc_a',
+  (SELECT sql FROM scouter_conc_call_sql)
+) AS t(result jsonb);
 
-SELECT dblink_disconnect('scouter_conc_a');
-SELECT dblink_disconnect('scouter_conc_b');
+-- Caller B: send the identical call asynchronously. With A's transaction
+-- still open, B must block on the same advisory lock key.
+SELECT extensions.dblink_send_query('scouter_conc_b', (SELECT sql FROM scouter_conc_call_sql));
+
+-- Poll pg_locks for up to ~2s for a backend genuinely waiting on an advisory
+-- lock — this is the assertion that the race was real, not a timing guess.
+DO $$
+DECLARE
+  attempt int := 0;
+BEGIN
+  WHILE attempt < 40 LOOP
+    IF EXISTS (
+      SELECT 1 FROM pg_locks
+      WHERE locktype = 'advisory' AND granted = false
+    ) THEN
+      RETURN;
+    END IF;
+    PERFORM pg_sleep(0.05);
+    attempt := attempt + 1;
+  END LOOP;
+END;
+$$;
+
+SELECT ok(
+  EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND granted = false),
+  'caller B is genuinely blocked waiting on the advisory lock caller A holds, not just running after A finished'
+);
+
+-- Release A's lock by committing, letting B's blocked call proceed.
+SELECT extensions.dblink_exec('scouter_conc_a', 'COMMIT');
+
+CREATE TEMP TABLE scouter_conc_result_b AS
+SELECT result FROM extensions.dblink_get_result('scouter_conc_b') AS t(result jsonb);
+
+SELECT extensions.dblink_disconnect('scouter_conc_a');
+SELECT extensions.dblink_disconnect('scouter_conc_b');
+DROP EXTENSION IF EXISTS dblink;
 
 SELECT ok(
   (SELECT result IS NOT NULL FROM scouter_conc_result_a)
