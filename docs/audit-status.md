@@ -2,7 +2,7 @@
 
 **Baseline source snapshot:** `diese-tech/sal-database@372dcf613cd219e74fbdcacc3226fc160f692eb3`
 
-**Last reviewed:** 2026-07-23
+**Last reviewed:** 2026-08-01
 
 This is the current public status for the SAL database-delivery repository. It
 contains SAL findings only. Detailed cross-platform comparison material and
@@ -12,8 +12,8 @@ non-public recovery evidence are maintained outside the public repositories.
 
 The baseline-adoption statements below are retained as historical evidence, but
 they no longer describe current `main`. The repository now publishes immutable
-contracts through `db-v1.3.0`, `contract.json` declares migration head
-`20260719220000`, and a current recovery attestation is checked in.
+contracts through `db-v1.5.0`, `contract.json` declares migration head
+`20260729071000`, and a current recovery attestation is checked in.
 
 The accepted draft and roster ADRs describe future implementation work, not
 already deployed schema. Their plain-English product and ownership summary is
