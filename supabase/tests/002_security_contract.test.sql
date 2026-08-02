@@ -17,15 +17,19 @@ SELECT ok(
   'RLS is enabled on every public application table'
 );
 SELECT ok(
-  (SELECT count(*) = 27 FROM pg_policies WHERE schemaname = 'public'),
-  'the 27 verified public-schema policies are present'
+  (SELECT count(*) = 31 FROM pg_policies WHERE schemaname = 'public'),
+  'the 31 verified public-schema policies are present'
 );
 SELECT ok(
   NOT EXISTS (
     SELECT 1
     FROM pg_policies
     WHERE schemaname = 'public'
-      AND tablename IN ('admin_users', 'admin_audit_log', 'audit_logs', 'pending_actions', 'pending_stat_records')
+      AND tablename IN (
+        'admin_users', 'admin_audit_log', 'audit_logs', 'pending_actions',
+        'pending_stat_records', 'bug_reports', 'bug_report_messages',
+        'bug_report_rate_limits', 'bug_report_abuse_decisions'
+      )
       AND roles && ARRAY['anon', 'authenticated', 'public']::name[]
   ),
   'sensitive administration and approval tables expose no client policy'
