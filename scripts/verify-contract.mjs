@@ -25,6 +25,7 @@ const requiredDatabaseTests = [
   '010_site_review_concurrency.test.sql',
   '011_scouter_engine.test.sql',
   '012_scouter_ingest_rpc.test.sql',
+  '015_bug_report_intake.test.sql',
 ];
 const hash = `sha256:${createHash('sha256').update(types).digest('hex')}`;
 const databaseMajorVersion = readDatabaseMajorVersion();
