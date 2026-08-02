@@ -2,14 +2,25 @@ BEGIN;
 
 SET LOCAL search_path TO extensions, public, storage, pg_catalog;
 
-SELECT plan(42);
+SELECT plan(46);
 
 SELECT ok(
-  (SELECT count(*) = 35
+  (SELECT count(*) = 39
    FROM pg_class c
    JOIN pg_namespace n ON n.oid = c.relnamespace
    WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')),
   'the released public table set is exact'
+);
+
+SELECT has_table('public', 'bug_reports', 'the private bug report table is deployed');
+SELECT has_table(
+  'public', 'bug_report_messages', 'the private bug report message table is deployed'
+);
+SELECT has_table(
+  'public', 'bug_report_rate_limits', 'the durable bug report rate-limit table is deployed'
+);
+SELECT has_table(
+  'public', 'bug_report_abuse_decisions', 'the durable bug report decision table is deployed'
 );
 
 SELECT has_table('public', 'scouter_matches', 'the scouter match table is deployed');
