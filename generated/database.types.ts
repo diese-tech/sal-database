@@ -2187,6 +2187,17 @@ export type Database = {
         }
         Returns: Json
       }
+      onboard_season_captain: {
+        Args: {
+          p_actor_discord_id: string
+          p_discord_id: string
+          p_division_id: string
+          p_org_id: string
+          p_player_id: string
+          p_season_id: string
+        }
+        Returns: Json
+      }
       read_bug_report_status: {
         Args: {
           p_access_token_hash?: string
