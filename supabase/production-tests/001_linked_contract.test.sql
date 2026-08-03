@@ -2,7 +2,7 @@ BEGIN;
 
 SET LOCAL search_path TO extensions, public, storage, pg_catalog;
 
-SELECT plan(46);
+SELECT plan(47);
 
 SELECT ok(
   (SELECT count(*) = 39
@@ -84,6 +84,21 @@ SELECT ok(
 SELECT ok(
   (SELECT count(*) <= 1 FROM public.seasons WHERE is_current),
   'at most one season is current'
+);
+
+SELECT ok(
+  (
+    SELECT count(*) = 4
+    FROM pg_trigger
+    WHERE tgname IN (
+      'season_orgs_identity_availability_guard',
+      'season_rosters_identity_availability_guard',
+      'players_active_participation_archive_guard',
+      'orgs_active_participation_archive_guard'
+    )
+      AND NOT tgisinternal
+  ),
+  'season identity availability is enforced at both assignment and archive boundaries'
 );
 
 SELECT has_table('public', 'operation_outbox', 'the durable operation outbox exists');
