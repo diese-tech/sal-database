@@ -7,30 +7,10 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -1539,6 +1519,7 @@ export type Database = {
           archived_at: string | null
           avatar_gradient: string
           avatar_initials: string
+          avatar_url: string | null
           deletion_scheduled_at: string | null
           discord_id: string | null
           discord_username: string
@@ -1559,6 +1540,7 @@ export type Database = {
           archived_at?: string | null
           avatar_gradient: string
           avatar_initials: string
+          avatar_url?: string | null
           deletion_scheduled_at?: string | null
           discord_id?: string | null
           discord_username: string
@@ -1579,6 +1561,7 @@ export type Database = {
           archived_at?: string | null
           avatar_gradient?: string
           avatar_initials?: string
+          avatar_url?: string | null
           deletion_scheduled_at?: string | null
           discord_id?: string | null
           discord_username?: string
@@ -1614,6 +1597,7 @@ export type Database = {
       }
       registrations: {
         Row: {
+          avatar_url: string | null
           created_at: string
           discord_display_name: string | null
           discord_id: string
@@ -1627,6 +1611,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           discord_display_name?: string | null
           discord_id: string
@@ -1640,6 +1625,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           discord_display_name?: string | null
           discord_id?: string
@@ -2400,9 +2386,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },
