@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(11);
+SELECT plan(13);
 
 INSERT INTO public.seasons (id, name, status, start_date, end_date, is_current)
 VALUES ('issue237-season', 'Issue 237 Season', 'pre-season', '2026-08-01', '2026-08-31', false);
@@ -45,8 +45,9 @@ VALUES
   );
 
 SELECT ok(
-  to_regprocedure('private.enforce_season_identity_availability()') IS NOT NULL,
-  'the private identity-availability trigger function exists'
+  to_regprocedure('private.assert_season_identity_availability()') IS NOT NULL
+    AND to_regprocedure('private.enforce_season_identity_availability()') IS NOT NULL,
+  'the private identity-availability validation and trigger functions exist'
 );
 
 SELECT is(
@@ -95,6 +96,35 @@ SELECT throws_ok(
   '23514',
   'Cannot enroll unavailable player issue237-archived-player. Restore the player before assigning active season participation.',
   'an archived player cannot receive free-agent participation'
+);
+
+ALTER TABLE public.season_rosters
+  DISABLE TRIGGER season_rosters_identity_availability_guard;
+
+INSERT INTO public.season_rosters (
+  season_id, player_id, org_id, division_id, is_captain, roster_status
+)
+VALUES (
+  'issue237-season', 'issue237-archived-player', NULL, 'terra', false, 'free_agent'
+);
+
+ALTER TABLE public.season_rosters
+  ENABLE TRIGGER season_rosters_identity_availability_guard;
+
+SELECT throws_ok(
+  $$SELECT private.assert_season_identity_availability()$$,
+  '23514',
+  'Season identity availability invariant failed: 0 active org assignment(s) reference unavailable orgs; 1 active roster assignment(s) reference unavailable players; 0 active roster assignment(s) reference unavailable orgs. Repair existing assignments before applying this migration.',
+  'migration validation rejects pre-existing identity drift'
+);
+
+DELETE FROM public.season_rosters
+WHERE season_id = 'issue237-season'
+  AND player_id = 'issue237-archived-player';
+
+SELECT lives_ok(
+  $$SELECT private.assert_season_identity_availability()$$,
+  'migration validation succeeds after existing drift is repaired'
 );
 
 INSERT INTO public.season_orgs (season_id, org_id, division_id, status)
