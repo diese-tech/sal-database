@@ -2,7 +2,7 @@ BEGIN;
 
 SET LOCAL search_path TO extensions, public, storage, pg_catalog;
 
-SELECT plan(47);
+SELECT plan(49);
 
 SELECT ok(
   (SELECT count(*) = 39
@@ -84,6 +84,43 @@ SELECT ok(
 SELECT ok(
   (SELECT count(*) <= 1 FROM public.seasons WHERE is_current),
   'at most one season is current'
+);
+
+SELECT ok(
+  EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'players'
+      AND column_name = 'avatar_url'
+      AND data_type = 'text'
+      AND is_nullable = 'YES'
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'public.players'::regclass
+      AND conname = 'players_avatar_url_discord_cdn_check'
+  ),
+  'players expose the nullable, Discord-CDN-constrained avatar URL'
+);
+SELECT ok(
+  EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'registrations'
+      AND column_name = 'avatar_url'
+      AND data_type = 'text'
+      AND is_nullable = 'YES'
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'public.registrations'::regclass
+      AND conname = 'registrations_avatar_url_discord_cdn_check'
+  ),
+  'registrations preserve the nullable, Discord-CDN-constrained signup avatar URL'
 );
 
 SELECT ok(

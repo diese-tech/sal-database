@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(22);
+SELECT plan(24);
 
 SELECT ok(
   (SELECT count(*) = 39
@@ -13,6 +13,10 @@ SELECT ok(
   'the contract contains all 39 application tables'
 );
 SELECT ok(to_regclass('public.players') IS NOT NULL, 'players exists');
+SELECT has_column('public', 'players', 'avatar_url', 'players has a canonical avatar URL');
+SELECT has_column(
+  'public', 'registrations', 'avatar_url', 'registrations has a canonical avatar URL'
+);
 SELECT ok(to_regclass('public.matches') IS NOT NULL, 'matches exists');
 SELECT ok(to_regclass('public.pending_actions') IS NOT NULL, 'pending_actions exists');
 SELECT ok(to_regclass('public.pending_stat_records') IS NOT NULL, 'pending_stat_records exists');
