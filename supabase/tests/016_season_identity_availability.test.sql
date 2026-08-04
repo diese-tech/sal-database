@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(13);
+SELECT plan(15);
 
 INSERT INTO public.seasons (id, name, status, start_date, end_date, is_current)
 VALUES ('issue237-season', 'Issue 237 Season', 'pre-season', '2026-08-01', '2026-08-31', false);
@@ -42,6 +42,10 @@ VALUES
   (
     'issue237-empty-player', NULL, 'issue237-empty', 'Issue 237 Empty', 'IE',
     'from-black to-white', 'Support', 'terra', 'active', 'issue237-empty-discord', NULL
+  ),
+  (
+    'issue237-second-player', NULL, 'issue237-second', 'Issue 237 Second', 'IS',
+    'from-black to-white', 'Support', 'terra', 'active', 'issue237-second-discord', NULL
   );
 
 SELECT ok(
@@ -177,6 +181,32 @@ SELECT lives_ok(
     )
   $$,
   'historical inactive roster participation can reference archived identities'
+);
+
+SELECT has_index(
+  'public',
+  'season_rosters',
+  'season_rosters_one_active_captain_per_org_idx',
+  'one active captain per season organization is enforced'
+);
+
+UPDATE public.season_rosters
+SET org_id = 'issue237-active-org', is_captain = true, roster_status = 'active'
+WHERE season_id = 'issue237-season'
+  AND player_id = 'issue237-active-player';
+
+SELECT throws_ok(
+  $$
+    INSERT INTO public.season_rosters (
+      season_id, player_id, org_id, division_id, is_captain, roster_status
+    ) VALUES (
+      'issue237-season', 'issue237-second-player', 'issue237-active-org',
+      'terra', true, 'active'
+    )
+  $$,
+  '23505',
+  'duplicate key value violates unique constraint "season_rosters_one_active_captain_per_org_idx"',
+  'a season organization cannot have two active captains'
 );
 
 SELECT lives_ok(

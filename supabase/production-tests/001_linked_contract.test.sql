@@ -2,7 +2,7 @@ BEGIN;
 
 SET LOCAL search_path TO extensions, public, storage, pg_catalog;
 
-SELECT plan(49);
+SELECT plan(50);
 
 SELECT ok(
   (SELECT count(*) = 39
@@ -136,6 +136,12 @@ SELECT ok(
       AND NOT tgisinternal
   ),
   'season identity availability is enforced at both assignment and archive boundaries'
+);
+SELECT has_index(
+  'public',
+  'season_rosters',
+  'season_rosters_one_active_captain_per_org_idx',
+  'each season organization has at most one active captain'
 );
 
 SELECT has_table('public', 'operation_outbox', 'the durable operation outbox exists');

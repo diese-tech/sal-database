@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(24);
+SELECT plan(25);
 
 SELECT ok(
   (SELECT count(*) = 39
@@ -25,6 +25,12 @@ SELECT ok(to_regclass('public.player_match_stats') IS NOT NULL, 'player_match_st
 SELECT ok(to_regclass('public.season_orgs') IS NOT NULL, 'season_orgs exists');
 SELECT ok(to_regclass('public.season_rosters') IS NOT NULL, 'season_rosters exists');
 SELECT ok(to_regclass('public.operation_outbox') IS NOT NULL, 'operation_outbox exists');
+SELECT has_index(
+  'public',
+  'season_rosters',
+  'season_rosters_one_active_captain_per_org_idx',
+  'season rosters enforce one active captain per organization'
+);
 SELECT ok(to_regclass('public.bug_reports') IS NOT NULL, 'bug_reports exists');
 SELECT ok(to_regclass('public.bug_report_rate_limits') IS NOT NULL, 'bug report rate limits exist');
 SELECT has_column('public', 'seasons', 'is_current', 'seasons has an explicit current marker');
