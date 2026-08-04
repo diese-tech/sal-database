@@ -291,13 +291,17 @@ SELECT public.create_scouter_game_draft(
   NULL
 ) AS result;
 
-SELECT ok(
-  (public.confirm_scouter_game_draft(
+CREATE TEMP TABLE scouter_review_override_confirmed AS
+SELECT public.confirm_scouter_game_draft(
     (SELECT result ->> 'draftId' FROM scouter_review_override_created),
     'scouter-review-override-host',
     1,
     'Verified against the screenshots; player registration is pending.'
-  ) ->> 'identityOverrideApplied')::boolean
+  ) AS result;
+
+SELECT ok(
+  (SELECT (result ->> 'identityOverrideApplied')::boolean
+   FROM scouter_review_override_confirmed)
     AND EXISTS (
       SELECT 1 FROM public.scouter_game_drafts
       WHERE hosted_by_discord_id = 'scouter-review-override-host'
