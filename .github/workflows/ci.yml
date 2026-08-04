@@ -73,13 +73,6 @@ jobs:
       - run: npx supabase test db --local supabase/tests
       - run: npx supabase gen types typescript --local > generated/database.types.actual.ts
       - run: node scripts/normalize-generated-types.mjs generated/database.types.actual.ts
-      - name: Upload generated types for review
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4.6.2
-        with:
-          name: generated-database-types
-          path: generated/database.types.actual.ts
-          if-no-files-found: ignore
       - run: diff --unified generated/database.types.ts generated/database.types.actual.ts
       - name: Stop local Supabase
         if: always()
