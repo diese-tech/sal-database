@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(15);
+SELECT plan(18);
 
 INSERT INTO public.seasons (id, name, status, start_date, end_date, is_current)
 VALUES ('issue237-season', 'Issue 237 Season', 'pre-season', '2026-08-01', '2026-08-31', false);
@@ -46,6 +46,11 @@ VALUES
   (
     'issue237-second-player', NULL, 'issue237-second', 'Issue 237 Second', 'IS',
     'from-black to-white', 'Support', 'terra', 'active', 'issue237-second-discord', NULL
+  ),
+  (
+    'issue237-unassigned-captain', NULL, 'issue237-unassigned-captain',
+    'Issue 237 Unassigned Captain', 'IC', 'from-black to-white', 'Support',
+    'lunar', 'active', 'issue237-unassigned-captain-discord', NULL
   );
 
 SELECT ok(
@@ -102,6 +107,17 @@ SELECT throws_ok(
   'an archived player cannot receive free-agent participation'
 );
 
+SELECT lives_ok(
+  $$
+    INSERT INTO public.season_rosters (
+      season_id, player_id, org_id, division_id, is_captain, roster_status
+    ) VALUES (
+      'issue237-season', 'issue237-unassigned-captain', NULL, 'lunar', true, 'free_agent'
+    )
+  $$,
+  'an unassigned preseason player can be marked as a captain before teams are formed'
+);
+
 ALTER TABLE public.season_rosters
   DISABLE TRIGGER season_rosters_identity_availability_guard;
 
@@ -133,6 +149,14 @@ SELECT lives_ok(
 
 INSERT INTO public.season_orgs (season_id, org_id, division_id, status)
 VALUES ('issue237-season', 'issue237-active-org', 'terra', 'active');
+
+SELECT lives_ok(
+  $$
+    INSERT INTO public.season_orgs (season_id, org_id, division_id, status)
+    VALUES ('issue237-season', 'issue237-active-org', 'lunar', 'active')
+  $$,
+  'one organization can field separate teams in multiple divisions in the same season'
+);
 
 SELECT throws_ok(
   $$
@@ -194,6 +218,17 @@ UPDATE public.season_rosters
 SET org_id = 'issue237-active-org', is_captain = true, roster_status = 'active'
 WHERE season_id = 'issue237-season'
   AND player_id = 'issue237-active-player';
+
+SELECT lives_ok(
+  $$
+    UPDATE public.season_rosters
+    SET org_id = 'issue237-active-org', division_id = 'lunar',
+        is_captain = true, roster_status = 'active'
+    WHERE season_id = 'issue237-season'
+      AND player_id = 'issue237-unassigned-captain'
+  $$,
+  'the same organization can have one captain for each divisional team'
+);
 
 SELECT throws_ok(
   $$
