@@ -1038,10 +1038,10 @@ export type Database = {
           },
           {
             foreignKeyName: "matches_away_season_org_fkey"
-            columns: ["season_id", "away_org_id"]
+            columns: ["season_id", "away_org_id", "division_id"]
             isOneToOne: false
             referencedRelation: "season_orgs"
-            referencedColumns: ["season_id", "org_id"]
+            referencedColumns: ["season_id", "org_id", "division_id"]
           },
           {
             foreignKeyName: "matches_division_id_fkey"
@@ -1059,10 +1059,10 @@ export type Database = {
           },
           {
             foreignKeyName: "matches_home_season_org_fkey"
-            columns: ["season_id", "home_org_id"]
+            columns: ["season_id", "home_org_id", "division_id"]
             isOneToOne: false
             referencedRelation: "season_orgs"
-            referencedColumns: ["season_id", "org_id"]
+            referencedColumns: ["season_id", "org_id", "division_id"]
           },
           {
             foreignKeyName: "matches_season_id_fkey"
@@ -1539,6 +1539,7 @@ export type Database = {
           archived_at: string | null
           avatar_gradient: string
           avatar_initials: string
+          avatar_url: string | null
           deletion_scheduled_at: string | null
           discord_id: string | null
           discord_username: string
@@ -1559,6 +1560,7 @@ export type Database = {
           archived_at?: string | null
           avatar_gradient: string
           avatar_initials: string
+          avatar_url?: string | null
           deletion_scheduled_at?: string | null
           discord_id?: string | null
           discord_username: string
@@ -1579,6 +1581,7 @@ export type Database = {
           archived_at?: string | null
           avatar_gradient?: string
           avatar_initials?: string
+          avatar_url?: string | null
           deletion_scheduled_at?: string | null
           discord_id?: string | null
           discord_username?: string
@@ -1614,6 +1617,7 @@ export type Database = {
       }
       registrations: {
         Row: {
+          avatar_url: string | null
           created_at: string
           discord_display_name: string | null
           discord_id: string
@@ -1627,6 +1631,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           discord_display_name?: string | null
           discord_id: string
@@ -1640,6 +1645,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           discord_display_name?: string | null
           discord_id?: string

@@ -2,7 +2,7 @@ BEGIN;
 
 SET LOCAL search_path TO extensions, public, storage, pg_catalog;
 
-SELECT plan(46);
+SELECT plan(52);
 
 SELECT ok(
   (SELECT count(*) = 39
@@ -84,6 +84,87 @@ SELECT ok(
 SELECT ok(
   (SELECT count(*) <= 1 FROM public.seasons WHERE is_current),
   'at most one season is current'
+);
+
+SELECT ok(
+  EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'players'
+      AND column_name = 'avatar_url'
+      AND data_type = 'text'
+      AND is_nullable = 'YES'
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'public.players'::regclass
+      AND conname = 'players_avatar_url_discord_cdn_check'
+  ),
+  'players expose the nullable, Discord-CDN-constrained avatar URL'
+);
+SELECT ok(
+  EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'registrations'
+      AND column_name = 'avatar_url'
+      AND data_type = 'text'
+      AND is_nullable = 'YES'
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'public.registrations'::regclass
+      AND conname = 'registrations_avatar_url_discord_cdn_check'
+  ),
+  'registrations preserve the nullable, Discord-CDN-constrained signup avatar URL'
+);
+
+SELECT ok(
+  (
+    SELECT count(*) = 4
+    FROM pg_trigger
+    WHERE tgname IN (
+      'season_orgs_identity_availability_guard',
+      'season_rosters_identity_availability_guard',
+      'players_active_participation_archive_guard',
+      'orgs_active_participation_archive_guard'
+    )
+      AND NOT tgisinternal
+  ),
+  'season identity availability is enforced at both assignment and archive boundaries'
+);
+SELECT has_index(
+  'public',
+  'season_rosters',
+  'season_rosters_one_active_captain_per_org_idx',
+  'each season organization has at most one active captain'
+);
+SELECT is(
+  (
+    SELECT string_agg(attribute.attname, ',' ORDER BY key_column.ordinality)
+    FROM pg_constraint AS constraint_row
+    CROSS JOIN LATERAL unnest(constraint_row.conkey) WITH ORDINALITY AS key_column(attnum, ordinality)
+    JOIN pg_attribute AS attribute
+      ON attribute.attrelid = constraint_row.conrelid
+     AND attribute.attnum = key_column.attnum
+    WHERE constraint_row.conrelid = 'public.season_orgs'::regclass
+      AND constraint_row.contype = 'p'
+  ),
+  'season_id,org_id,division_id',
+  'season team identity is scoped by season, organization, and division'
+);
+SELECT ok(
+  (
+    SELECT pg_get_indexdef(index_row.indexrelid)
+      LIKE '%(season_id, org_id, division_id)%'
+    FROM pg_index AS index_row
+    WHERE index_row.indexrelid = 'public.season_rosters_one_active_captain_per_org_idx'::regclass
+  ),
+  'captain uniqueness is scoped to each divisional season team'
 );
 
 SELECT has_table('public', 'operation_outbox', 'the durable operation outbox exists');
