@@ -2,7 +2,7 @@ BEGIN;
 
 SET LOCAL search_path TO extensions, public, storage, pg_catalog;
 
-SELECT plan(50);
+SELECT plan(52);
 
 SELECT ok(
   (SELECT count(*) = 39
@@ -142,6 +142,29 @@ SELECT has_index(
   'season_rosters',
   'season_rosters_one_active_captain_per_org_idx',
   'each season organization has at most one active captain'
+);
+SELECT is(
+  (
+    SELECT string_agg(attribute.attname, ',' ORDER BY key_column.ordinality)
+    FROM pg_constraint AS constraint_row
+    CROSS JOIN LATERAL unnest(constraint_row.conkey) WITH ORDINALITY AS key_column(attnum, ordinality)
+    JOIN pg_attribute AS attribute
+      ON attribute.attrelid = constraint_row.conrelid
+     AND attribute.attnum = key_column.attnum
+    WHERE constraint_row.conrelid = 'public.season_orgs'::regclass
+      AND constraint_row.contype = 'p'
+  ),
+  'season_id,org_id,division_id',
+  'season team identity is scoped by season, organization, and division'
+);
+SELECT ok(
+  (
+    SELECT pg_get_indexdef(index_row.indexrelid)
+      LIKE '%(season_id, org_id, division_id)%'
+    FROM pg_index AS index_row
+    WHERE index_row.indexrelid = 'public.season_rosters_one_active_captain_per_org_idx'::regclass
+  ),
+  'captain uniqueness is scoped to each divisional season team'
 );
 
 SELECT has_table('public', 'operation_outbox', 'the durable operation outbox exists');
