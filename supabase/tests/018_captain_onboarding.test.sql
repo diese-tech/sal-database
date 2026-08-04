@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(18);
+SELECT plan(19);
 
 SELECT ok(
   to_regprocedure('public.onboard_season_captain(text,text,text,text,text,text)') IS NOT NULL,
@@ -112,9 +112,20 @@ SELECT is(
   (SELECT count(*)::integer
    FROM public.audit_logs
    WHERE actor_discord_id = 'captain-onboarding-admin'
-     AND action_type IN ('season_organization_onboarded', 'season_captain_onboarded')),
-  2,
-  'the organization and captain mutations each append an immutable audit'
+     AND action_type = 'season_organization_onboarded'
+     AND entity_id = 'captain-onboarding-season:captain-onboarding-org:solar'),
+  1,
+  'the organization mutation appends an immutable audit'
+);
+
+SELECT is(
+  (SELECT count(*)::integer
+   FROM public.audit_logs
+   WHERE actor_discord_id = 'captain-onboarding-admin'
+     AND action_type = 'season_captain_onboarded'
+     AND entity_id = 'captain-onboarding-season:captain-onboarding-player'),
+  1,
+  'the captain mutation appends an immutable audit'
 );
 
 SELECT ok(
@@ -207,10 +218,14 @@ SELECT ok(
    FROM public.season_rosters
    WHERE season_id = 'captain-onboarding-season'
      AND player_id = 'captain-onboarding-player')
-    AND (SELECT count(*) = 2
+    AND (SELECT count(*) = 1
          FROM public.audit_logs
-         WHERE actor_discord_id = 'captain-onboarding-admin'
-           AND action_type IN ('season_organization_onboarded', 'season_captain_onboarded')),
+         WHERE action_type = 'season_organization_onboarded'
+           AND entity_id = 'captain-onboarding-season:captain-onboarding-org:solar')
+    AND (SELECT count(*) = 1
+         FROM public.audit_logs
+         WHERE action_type = 'season_captain_onboarded'
+           AND entity_id = 'captain-onboarding-season:captain-onboarding-player'),
   'an exact replay writes no duplicate roster or audit rows'
 );
 
