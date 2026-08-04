@@ -18,3 +18,12 @@ idempotent reset for pre-seasons with no matches or draft rooms. Its one-time
 production call removes only inherited `season_orgs` and `season_rosters` rows
 from `preseason-s2`; organization/player identities and every historical season
 remain intact.
+
+`20260804045313_captain_onboarding.sql` adds the canonical captain-onboarding
+operation. It requires explicit season, player, Discord, organization, division,
+and admin-actor mappings; verifies Discord identity was linked separately; and
+idempotently creates only season-scoped organization/captain state with immutable
+audits. It never updates `players.is_captain` or grants `admin_users` access.
+Every `season_orgs` lookup is scoped by `(season_id, org_id, division_id)`, not
+just `(season_id, org_id)`, so onboarding a captain for one of an organization's
+divisions never collides with its other divisions.
