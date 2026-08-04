@@ -27,3 +27,10 @@ audits. It never updates `players.is_captain` or grants `admin_users` access.
 Every `season_orgs` lookup is scoped by `(season_id, org_id, division_id)`, not
 just `(season_id, org_id)`, so onboarding a captain for one of an organization's
 divisions never collides with its other divisions.
+
+`20260804231500_scouter_game_review_drafts.sql` separates OCR extraction from
+canonical scouter ingestion. It adds private, durable, host-scoped drafts with
+optimistic revisions and identity diagnostics. Revision and cancellation never
+write canonical stats; explicit confirmation is the only transition that calls
+the existing atomic `ingest_scouter_game` RPC. This pre-persist safeguard is not
+the later ADR-008 reviewable-publication lifecycle tracked by sal-site #198.

@@ -28,6 +28,9 @@ The database contract includes these pgTAP suites:
 - `012_scouter_ingest_rpc.test.sql` for atomic scouter ingestion, service-role
   access, identity linking, match grouping, idempotency, audit logging, and
   forced-failure rollback.
+- `019_scouter_game_review_drafts.test.sql` for private pre-persist OCR drafts,
+  identity diagnostics, host/revision isolation, edit/cancel/confirm state
+  transitions, explicit identity overrides, idempotency, and audit evidence.
 
 A `contract.json` is rejected until all required suites exist. CI runs
 them against a clean local reset, and the protected deployment runs them

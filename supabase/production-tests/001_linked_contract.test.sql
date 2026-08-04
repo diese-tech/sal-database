@@ -2,10 +2,10 @@ BEGIN;
 
 SET LOCAL search_path TO extensions, public, storage, pg_catalog;
 
-SELECT plan(52);
+SELECT plan(59);
 
 SELECT ok(
-  (SELECT count(*) = 39
+  (SELECT count(*) = 40
    FROM pg_class c
    JOIN pg_namespace n ON n.oid = c.relnamespace
    WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')),
@@ -27,6 +27,48 @@ SELECT has_table('public', 'scouter_matches', 'the scouter match table is deploy
 SELECT has_table('public', 'scouter_games', 'the scouter game table is deployed');
 SELECT has_table(
   'public', 'scouter_game_participants', 'the scouter participant table is deployed'
+);
+SELECT has_table(
+  'public', 'scouter_game_drafts', 'the private scouter review draft table is deployed'
+);
+SELECT ok(
+  (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.scouter_game_drafts'::regclass)
+    AND NOT has_table_privilege('anon', 'public.scouter_game_drafts', 'SELECT,INSERT,UPDATE,DELETE')
+    AND NOT has_table_privilege('authenticated', 'public.scouter_game_drafts', 'SELECT,INSERT,UPDATE,DELETE')
+    AND has_table_privilege('service_role', 'public.scouter_game_drafts', 'SELECT,INSERT,UPDATE,DELETE'),
+  'private scouter review drafts are service-role-only'
+);
+SELECT has_function(
+  'public', 'create_scouter_game_draft',
+  ARRAY['text', 'text', 'integer', 'text', 'text', 'jsonb', 'text'],
+  'the durable scouter draft creation RPC exists'
+);
+SELECT has_function(
+  'public', 'revise_scouter_game_draft', ARRAY['text', 'text', 'integer', 'jsonb'],
+  'the host-scoped scouter draft revision RPC exists'
+);
+SELECT has_function(
+  'public', 'cancel_scouter_game_draft', ARRAY['text', 'text'],
+  'the idempotent scouter draft cancellation RPC exists'
+);
+SELECT has_function(
+  'public', 'confirm_scouter_game_draft', ARRAY['text', 'text', 'integer', 'text'],
+  'the atomic scouter draft confirmation RPC exists'
+);
+SELECT ok(
+  NOT has_function_privilege(
+    'anon', 'public.create_scouter_game_draft(text,text,integer,text,text,jsonb,text)', 'EXECUTE'
+  )
+    AND NOT has_function_privilege(
+      'authenticated', 'public.confirm_scouter_game_draft(text,text,integer,text)', 'EXECUTE'
+    )
+    AND has_function_privilege(
+      'service_role', 'public.create_scouter_game_draft(text,text,integer,text,text,jsonb,text)', 'EXECUTE'
+    )
+    AND has_function_privilege(
+      'service_role', 'public.confirm_scouter_game_draft(text,text,integer,text)', 'EXECUTE'
+    ),
+  'scouter draft transitions are service-role-only'
 );
 SELECT ok(
   (
