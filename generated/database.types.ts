@@ -2291,6 +2291,16 @@ export type Database = {
         }
         Returns: Json
       }
+      consume_bug_report_allowance: {
+        Args: {
+          p_action: string
+          p_attempt_decision_id: string
+          p_bucket_hash: string
+          p_submission_limit?: number
+          p_window_seconds?: number
+        }
+        Returns: Json
+      }
       correct_scouter_game: {
         Args: {
           p_actor_discord_id: string
@@ -2299,16 +2309,6 @@ export type Database = {
           p_game: Json
           p_reason: string
           p_scouter_game_id: string
-        }
-        Returns: Json
-      }
-      consume_bug_report_allowance: {
-        Args: {
-          p_action: string
-          p_attempt_decision_id: string
-          p_bucket_hash: string
-          p_submission_limit?: number
-          p_window_seconds?: number
         }
         Returns: Json
       }
