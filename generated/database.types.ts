@@ -1465,15 +1465,18 @@ export type Database = {
           damage_dealt: number | null
           damage_mitigated: number | null
           deaths: number | null
+          division_id: string | null
           game_number: number
           god_played: string | null
           healing_done: number | null
           id: string
           kills: number | null
           match_id: string
+          org_id: string | null
           pending_stat_record_id: string | null
           player_id: string
           role: string | null
+          season_id: string | null
           won: boolean | null
         }
         Insert: {
@@ -1482,15 +1485,18 @@ export type Database = {
           damage_dealt?: number | null
           damage_mitigated?: number | null
           deaths?: number | null
+          division_id?: string | null
           game_number?: number
           god_played?: string | null
           healing_done?: number | null
           id?: string
           kills?: number | null
           match_id: string
+          org_id?: string | null
           pending_stat_record_id?: string | null
           player_id: string
           role?: string | null
+          season_id?: string | null
           won?: boolean | null
         }
         Update: {
@@ -1499,15 +1505,18 @@ export type Database = {
           damage_dealt?: number | null
           damage_mitigated?: number | null
           deaths?: number | null
+          division_id?: string | null
           game_number?: number
           god_played?: string | null
           healing_done?: number | null
           id?: string
           kills?: number | null
           match_id?: string
+          org_id?: string | null
           pending_stat_record_id?: string | null
           player_id?: string
           role?: string | null
+          season_id?: string | null
           won?: boolean | null
         }
         Relationships: [
@@ -1531,6 +1540,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_stats_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_stats_season_org_division_fkey"
+            columns: ["season_id", "org_id", "division_id"]
+            isOneToOne: false
+            referencedRelation: "season_orgs"
+            referencedColumns: ["season_id", "org_id", "division_id"]
           },
         ]
       }
