@@ -34,3 +34,10 @@ optimistic revisions and identity diagnostics. Revision and cancellation never
 write canonical stats; explicit confirmation is the only transition that calls
 the existing atomic `ingest_scouter_game` RPC. This pre-persist safeguard is not
 the later ADR-008 reviewable-publication lifecycle tracked by sal-site #198.
+
+`20260805031500_scouter_game_corrections.sql` adds the post-persist repair path
+for confirmed scouter games. One admin-only RPC replaces the complete existing
+ten-player snapshot, requires explicit canonical player and god IDs, rejects a
+stale revision, and preserves source-image keys and match membership. Each
+successful change writes an immutable idempotency receipt plus a full before and
+after audit; an exact retry performs no second mutation.

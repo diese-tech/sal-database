@@ -29,6 +29,7 @@ const requiredDatabaseTests = [
   '016_season_identity_availability.test.sql',
   '019_scouter_game_review_drafts.test.sql',
   '020_official_stat_game_attribution.test.sql',
+  '021_scouter_game_corrections.test.sql',
 ];
 const hash = `sha256:${createHash('sha256').update(types).digest('hex')}`;
 const databaseMajorVersion = readDatabaseMajorVersion();
