@@ -253,7 +253,7 @@ SELECT has_function(
 );
 SELECT ok(
   (
-    SELECT array_agg(columns.column_name ORDER BY columns.column_name)
+    SELECT array_agg(columns.column_name::text ORDER BY columns.column_name)
       @> ARRAY['division_id', 'org_id', 'season_id']::text[]
     FROM information_schema.columns AS columns
     WHERE columns.table_schema = 'public'
