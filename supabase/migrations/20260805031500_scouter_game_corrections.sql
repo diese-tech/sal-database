@@ -50,7 +50,8 @@ CREATE INDEX scouter_game_corrections_game_created_idx
   ON public.scouter_game_corrections (scouter_game_id, created_at DESC);
 
 ALTER TABLE public.scouter_game_corrections ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE public.scouter_game_corrections FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE public.scouter_game_corrections
+  FROM PUBLIC, anon, authenticated, service_role;
 GRANT SELECT ON TABLE public.scouter_game_corrections TO service_role;
 
 COMMENT ON TABLE public.scouter_game_corrections IS
