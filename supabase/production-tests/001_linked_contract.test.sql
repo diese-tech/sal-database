@@ -2,10 +2,10 @@ BEGIN;
 
 SET LOCAL search_path TO extensions, public, storage, pg_catalog;
 
-SELECT plan(62);
+SELECT plan(67);
 
 SELECT ok(
-  (SELECT count(*) = 40
+  (SELECT count(*) = 41
    FROM pg_class c
    JOIN pg_namespace n ON n.oid = c.relnamespace
    WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')),
@@ -30,6 +30,44 @@ SELECT has_table(
 );
 SELECT has_table(
   'public', 'scouter_game_drafts', 'the private scouter review draft table is deployed'
+);
+SELECT has_table(
+  'public', 'scouter_game_corrections', 'the private scouter correction receipt table is deployed'
+);
+SELECT ok(
+  (
+    SELECT array_agg(columns.column_name::text ORDER BY columns.column_name)
+      @> ARRAY['revision', 'updated_at', 'updated_by_discord_id']::text[]
+    FROM information_schema.columns AS columns
+    WHERE columns.table_schema = 'public'
+      AND columns.table_name = 'scouter_games'
+  ),
+  'scouter games expose optimistic correction metadata'
+);
+SELECT ok(
+  (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.scouter_game_corrections'::regclass)
+    AND NOT has_table_privilege('anon', 'public.scouter_game_corrections', 'SELECT,INSERT,UPDATE,DELETE')
+    AND NOT has_table_privilege('authenticated', 'public.scouter_game_corrections', 'SELECT,INSERT,UPDATE,DELETE')
+    AND has_table_privilege('service_role', 'public.scouter_game_corrections', 'SELECT')
+    AND NOT has_table_privilege('service_role', 'public.scouter_game_corrections', 'INSERT,UPDATE,DELETE'),
+  'scouter correction receipts are private and application-immutable'
+);
+SELECT has_function(
+  'public', 'correct_scouter_game',
+  ARRAY['text', 'text', 'integer', 'text', 'text', 'jsonb'],
+  'the atomic scouter correction RPC exists'
+);
+SELECT ok(
+  NOT has_function_privilege(
+    'anon', 'public.correct_scouter_game(text,text,integer,text,text,jsonb)', 'EXECUTE'
+  )
+    AND NOT has_function_privilege(
+      'authenticated', 'public.correct_scouter_game(text,text,integer,text,text,jsonb)', 'EXECUTE'
+    )
+    AND has_function_privilege(
+      'service_role', 'public.correct_scouter_game(text,text,integer,text,text,jsonb)', 'EXECUTE'
+    ),
+  'only the service role can execute admin-authorized scouter corrections'
 );
 SELECT ok(
   (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.scouter_game_drafts'::regclass)
