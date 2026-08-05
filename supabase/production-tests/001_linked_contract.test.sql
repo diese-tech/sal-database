@@ -2,7 +2,7 @@ BEGIN;
 
 SET LOCAL search_path TO extensions, public, storage, pg_catalog;
 
-SELECT plan(59);
+SELECT plan(62);
 
 SELECT ok(
   (SELECT count(*) = 40
@@ -250,6 +250,29 @@ SELECT has_function(
 SELECT has_function(
   'public', 'resolve_pending_stat_record', ARRAY['text', 'text', 'text', 'text'],
   'the stat decision RPC exists'
+);
+SELECT ok(
+  (
+    SELECT array_agg(columns.column_name ORDER BY columns.column_name)
+      @> ARRAY['division_id', 'org_id', 'season_id']::text[]
+    FROM information_schema.columns AS columns
+    WHERE columns.table_schema = 'public'
+      AND columns.table_name = 'player_stats'
+  ),
+  'player_stats exposes the released game-time attribution tuple'
+);
+SELECT has_trigger(
+  'public', 'player_stats', 'player_stats_game_attribution',
+  'new official player stats require historical attribution'
+);
+SELECT ok(
+  NOT EXISTS (
+    SELECT 1
+    FROM public.player_stats AS stats
+    WHERE num_nulls(stats.season_id, stats.org_id, stats.division_id)
+      NOT IN (0, 3)
+  ),
+  'production contains no partially attributed official player stat rows'
 );
 SELECT has_function(
   'public', 'claim_operation_outbox', ARRAY['text', 'integer'],
