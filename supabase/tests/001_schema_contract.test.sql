@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(25);
+SELECT plan(26);
 
 SELECT ok(
   (SELECT count(*) = 41
@@ -35,15 +35,20 @@ SELECT ok(to_regclass('public.bug_reports') IS NOT NULL, 'bug_reports exists');
 SELECT ok(to_regclass('public.bug_report_rate_limits') IS NOT NULL, 'bug report rate limits exist');
 SELECT has_column('public', 'seasons', 'is_current', 'seasons has an explicit current marker');
 SELECT ok(
-  (SELECT count(*) = 30
+  (SELECT count(*) = 32
    FROM pg_proc p
    JOIN pg_namespace n ON n.oid = p.pronamespace
    WHERE n.nspname = 'public'),
-  'the contract contains the 30 verified production functions'
+  'the contract contains the 32 verified production functions'
 );
 SELECT ok(to_regprocedure('public.replace_standings(jsonb)') IS NOT NULL, 'replace_standings exists');
 SELECT ok(to_regprocedure('public.replace_match_report_stats(uuid,jsonb)') IS NOT NULL, 'replace_match_report_stats exists');
 SELECT ok(to_regprocedure('public.set_current_season(text)') IS NOT NULL, 'set_current_season exists');
+SELECT ok(
+  to_regprocedure('public.preview_organization_merge(text,text)') IS NOT NULL
+    AND to_regprocedure('public.merge_organization(text,text,text)') IS NOT NULL,
+  'organization identity merge RPCs exist'
+);
 SELECT ok(
   to_regprocedure('public.create_pending_action(text,text,text,text,jsonb)') IS NOT NULL
     AND to_regprocedure('public.resolve_pending_action(text,text,text,text)') IS NOT NULL
