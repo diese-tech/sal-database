@@ -271,7 +271,7 @@ BEGIN
   END IF;
 
   IF (
-    SELECT count(DISTINCT org_id) > 1
+    SELECT count(DISTINCT id) > 1
     FROM public.orgs
     WHERE captain_id IN (v_source_id, v_target_id)
       AND archived_at IS NULL
