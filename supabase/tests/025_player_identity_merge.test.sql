@@ -735,7 +735,7 @@ INSERT INTO public.players (
 ) VALUES
   ('player-merge-future-source', 'future-source', 'Future Source', 'FS', 'from-black to-white', 'Flex', 'free-agent'),
   ('player-merge-future-target', 'future-target', 'Future Target', 'FT', 'from-black to-white', 'Flex', 'free-agent');
-CREATE TEMP TABLE player_merge_future_reference (
+CREATE TABLE public.player_merge_future_reference (
   id text PRIMARY KEY,
   player_id text NOT NULL,
   CONSTRAINT future_player_reference_player_id_fkey
