@@ -31,6 +31,12 @@ The database contract includes these pgTAP suites:
 - `019_scouter_game_review_drafts.test.sql` for private pre-persist OCR drafts,
   identity diagnostics, host/revision isolation, edit/cancel/confirm state
   transitions, explicit identity overrides, idempotency, and audit evidence.
+- `025_player_identity_merge.test.sql` for registration identity reuse,
+  service-role player merge boundaries, typed-reference transfer, compatible
+  season coalescing, immutable evidence, blockers, rollback, and retry safety.
+- `026_captain_token_cardinality.test.sql` for multiple independently
+  consumable captain/owner links per draft team, globally unique token hashes,
+  one-time consumption isolation, expiration, and organization scope.
 
 A `contract.json` is rejected until all required suites exist. CI runs
 them against a clean local reset, and the protected deployment runs them

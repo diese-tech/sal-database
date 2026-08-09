@@ -35,11 +35,11 @@ SELECT ok(to_regclass('public.bug_reports') IS NOT NULL, 'bug_reports exists');
 SELECT ok(to_regclass('public.bug_report_rate_limits') IS NOT NULL, 'bug report rate limits exist');
 SELECT has_column('public', 'seasons', 'is_current', 'seasons has an explicit current marker');
 SELECT ok(
-  (SELECT count(*) = 34
+  (SELECT count(*) = 36
    FROM pg_proc p
    JOIN pg_namespace n ON n.oid = p.pronamespace
    WHERE n.nspname = 'public'),
-  'the contract contains the 34 verified production functions'
+  'the contract contains the 36 verified production functions'
 );
 SELECT ok(to_regprocedure('public.replace_standings(jsonb)') IS NOT NULL, 'replace_standings exists');
 SELECT ok(to_regprocedure('public.replace_match_report_stats(uuid,jsonb)') IS NOT NULL, 'replace_match_report_stats exists');

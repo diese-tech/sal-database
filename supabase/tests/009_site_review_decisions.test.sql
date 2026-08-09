@@ -463,7 +463,12 @@ SELECT ok(
         has_function_privilege('anon', functions.oid, 'EXECUTE')
         OR has_function_privilege('authenticated', functions.oid, 'EXECUTE')
         OR NOT has_function_privilege('service_role', functions.oid, 'EXECUTE')
-        OR NOT (functions.proconfig @> ARRAY['search_path=pg_catalog, public'])
+        OR NOT (
+          (functions.proname = 'resolve_registration_review'
+            AND functions.proconfig @> ARRAY['search_path=pg_catalog, public, private'])
+          OR (functions.proname = 'resolve_match_report_review'
+            AND functions.proconfig @> ARRAY['search_path=pg_catalog, public'])
+        )
       )
   )
   AND NOT EXISTS (
