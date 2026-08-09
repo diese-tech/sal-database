@@ -556,6 +556,9 @@ export type Database = {
           season_id: string
           started_at: string | null
           status: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by_discord_id: string | null
         }
         Insert: {
           base_order?: Json
@@ -570,6 +573,9 @@ export type Database = {
           season_id: string
           started_at?: string | null
           status?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by_discord_id?: string | null
         }
         Update: {
           base_order?: Json
@@ -584,6 +590,9 @@ export type Database = {
           season_id?: string
           started_at?: string | null
           status?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by_discord_id?: string | null
         }
         Relationships: [
           {
@@ -2354,6 +2363,10 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_pending_draft_room: {
+        Args: { p_actor_discord_id: string; p_draft_room_id: string }
+        Returns: Json
+      }
       enqueue_operation_outbox: {
         Args: {
           p_aggregate_id: string
@@ -2505,6 +2518,14 @@ export type Database = {
           p_actor_discord_id: string
           p_bug_report_id: string
           p_status: string
+        }
+        Returns: Json
+      }
+      void_draft_room: {
+        Args: {
+          p_actor_discord_id: string
+          p_draft_room_id: string
+          p_reason: string
         }
         Returns: Json
       }
