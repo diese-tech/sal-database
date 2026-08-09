@@ -32,6 +32,7 @@ const requiredDatabaseTests = [
   '021_scouter_game_corrections.test.sql',
   '022_organization_merge.test.sql',
   '023_multidivision_standings.test.sql',
+  '024_draft_room_lifecycle.test.sql',
 ];
 const hash = `sha256:${createHash('sha256').update(types).digest('hex')}`;
 const databaseMajorVersion = readDatabaseMajorVersion();
