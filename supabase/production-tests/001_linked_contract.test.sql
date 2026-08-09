@@ -2,7 +2,7 @@ BEGIN;
 
 SET LOCAL search_path TO extensions, public, storage, pg_catalog;
 
-SELECT plan(67);
+SELECT plan(70);
 
 SELECT ok(
   (SELECT count(*) = 41
@@ -68,6 +68,35 @@ SELECT ok(
       'service_role', 'public.correct_scouter_game(text,text,integer,text,text,jsonb)', 'EXECUTE'
     ),
   'only the service role can execute admin-authorized scouter corrections'
+);
+SELECT has_function(
+  'public', 'preview_organization_merge', ARRAY['text', 'text'],
+  'the organization merge preview RPC exists'
+);
+SELECT has_function(
+  'public', 'merge_organization', ARRAY['text', 'text', 'text'],
+  'the transactional organization merge RPC exists'
+);
+SELECT ok(
+  NOT has_function_privilege(
+    'anon', 'public.preview_organization_merge(text,text)', 'EXECUTE'
+  )
+    AND NOT has_function_privilege(
+      'authenticated', 'public.preview_organization_merge(text,text)', 'EXECUTE'
+    )
+    AND has_function_privilege(
+      'service_role', 'public.preview_organization_merge(text,text)', 'EXECUTE'
+    )
+    AND NOT has_function_privilege(
+      'anon', 'public.merge_organization(text,text,text)', 'EXECUTE'
+    )
+    AND NOT has_function_privilege(
+      'authenticated', 'public.merge_organization(text,text,text)', 'EXECUTE'
+    )
+    AND has_function_privilege(
+      'service_role', 'public.merge_organization(text,text,text)', 'EXECUTE'
+    ),
+  'organization merge RPCs are service-role-only'
 );
 SELECT ok(
   (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.scouter_game_drafts'::regclass)

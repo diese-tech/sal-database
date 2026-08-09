@@ -41,3 +41,10 @@ ten-player snapshot, requires explicit canonical player and god IDs, rejects a
 stale revision, and preserves source-image keys and match membership. Each
 successful change writes an immutable idempotency receipt plus a full before and
 after audit; an exact retry performs no second mutation.
+
+`20260809120000_organization_identity_merge.sql` adds a service-role-only,
+fail-closed organization deduplication workflow. Preview reports every typed
+reference and ambiguity; apply rechecks under locks, transfers live history to
+the canonical identity, preserves immutable evidence, records the superadmin
+actor, and deletes the duplicate in one transaction. Exact retries return the
+recorded result instead of applying a second mutation.
