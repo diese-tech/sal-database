@@ -453,10 +453,13 @@ INSERT INTO public.players (
     'player-merge-reverse-discord', true
   );
 
+CREATE TEMP TABLE player_merge_reverse_result AS
+SELECT public.merge_player(
+  'player-merge-reverse-source', 'player-merge-reverse-target', 'player-merge-superadmin'
+) AS result;
+
 SELECT ok(
-  (public.merge_player(
-    'player-merge-reverse-source', 'player-merge-reverse-target', 'player-merge-superadmin'
-  ) ->> 'code') = 'merged'
+  (SELECT result ->> 'code' = 'merged' FROM player_merge_reverse_result)
   AND NOT EXISTS (SELECT 1 FROM public.players WHERE id = 'player-merge-reverse-source')
   AND EXISTS (
     SELECT 1 FROM public.players
