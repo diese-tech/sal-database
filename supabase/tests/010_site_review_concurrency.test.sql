@@ -46,9 +46,14 @@ BEGIN
     DELETE FROM public.admin_audit_log
     WHERE entity_id LIKE 'db02-conc-%'
        OR entity_id = '00000000-0000-0000-0000-00000000d299';
+    DELETE FROM public.player_stats WHERE match_id = 'db02-conc-match';
     DELETE FROM public.player_match_stats WHERE match_id = 'db02-conc-match';
     DELETE FROM public.match_reports WHERE id = '00000000-0000-0000-0000-00000000d299'::uuid;
     DELETE FROM public.matches WHERE id = 'db02-conc-match';
+    DELETE FROM public.season_rosters WHERE season_id = 'db02-conc-season';
+    DELETE FROM public.players
+    WHERE id LIKE 'db02-conc-home-player-%'
+       OR id LIKE 'db02-conc-away-player-%';
     DELETE FROM public.players WHERE discord_id = 'db02-conc-registration-discord';
     DELETE FROM public.season_orgs WHERE season_id = 'db02-conc-season';
     DELETE FROM public.orgs WHERE id IN ('db02-conc-home', 'db02-conc-away');
@@ -85,6 +90,32 @@ BEGIN
     VALUES
       ('db02-conc-season', 'db02-conc-home', 'terra'),
       ('db02-conc-season', 'db02-conc-away', 'terra');
+    INSERT INTO public.players (
+      id, org_id, discord_username, ign, avatar_initials, avatar_gradient,
+      primary_role, division_id, status
+    )
+    SELECT
+      'db02-conc-home-player-' || player_number,
+      'db02-conc-home',
+      'db02-conc-home-player-' || player_number,
+      'Concurrent Home ' || player_number,
+      'CH', 'from-black to-white', 'Flex', 'terra', 'active'
+    FROM generate_series(1, 5) AS player_number
+    UNION ALL
+    SELECT
+      'db02-conc-away-player-' || player_number,
+      'db02-conc-away',
+      'db02-conc-away-player-' || player_number,
+      'Concurrent Away ' || player_number,
+      'CA', 'from-black to-white', 'Flex', 'terra', 'active'
+    FROM generate_series(1, 5) AS player_number;
+    INSERT INTO public.season_rosters (
+      season_id, player_id, org_id, division_id, roster_status
+    )
+    SELECT 'db02-conc-season', id, org_id, 'terra', 'active'
+    FROM public.players
+    WHERE id LIKE 'db02-conc-home-player-%'
+       OR id LIKE 'db02-conc-away-player-%';
     INSERT INTO public.matches (
       id, division_id, home_org_id, away_org_id, scheduled_date,
       scheduled_time, status, week, season_id
@@ -111,18 +142,18 @@ BEGIN
           'players', (
             SELECT jsonb_agg(
               jsonb_build_object(
-                'playerIgn', CASE
-                  WHEN player_number <= 5 THEN 'Concurrent Home ' || player_number
-                  ELSE 'Concurrent Away ' || (player_number - 5)
-                END,
-                'side', CASE WHEN player_number <= 5 THEN 'home' ELSE 'away' END,
-                'won', player_number <= 5,
+                'playerIgn', players.ign,
+                'playerId', players.id,
+                'side', CASE WHEN players.org_id = 'db02-conc-home' THEN 'home' ELSE 'away' END,
+                'won', players.org_id = 'db02-conc-home',
                 'kills', 3,
                 'deaths', 2,
                 'assists', 7
-              ) ORDER BY player_number
+              ) ORDER BY players.id
             )
-            FROM generate_series(1, 10) AS player_number
+            FROM public.players
+            WHERE players.id LIKE 'db02-conc-home-player-%'
+               OR players.id LIKE 'db02-conc-away-player-%'
           )
         )
       )
@@ -198,12 +229,14 @@ CREATE TEMP TABLE match_results (worker text, result jsonb);
 DO $match_race$
 BEGIN
   PERFORM dblink_exec('db02_worker_a', 'BEGIN');
+  -- Match-report decisions lock the match parent before child report/action
+  -- rows, so both reviewers contend at the same parent row first.
   PERFORM locked.id
   FROM dblink(
     'db02_worker_a',
-    $$SELECT id FROM public.match_reports
-      WHERE id = '00000000-0000-0000-0000-00000000d299'::uuid FOR UPDATE$$
-  ) AS locked(id uuid);
+    $$SELECT id FROM public.matches
+      WHERE id = 'db02-conc-match' FOR UPDATE$$
+  ) AS locked(id text);
   PERFORM dblink_send_query(
     'db02_worker_b',
     $$SELECT public.resolve_match_report_review(
@@ -217,7 +250,7 @@ $match_race$;
 SELECT is(
   dblink_is_busy('db02_worker_b'),
   1,
-  'the second match-report decision waits behind the first reviewer lock'
+  'the second match-report decision waits behind the first match lock'
 );
 INSERT INTO match_results
 SELECT 'worker-a', result::jsonb
@@ -254,7 +287,12 @@ SELECT ok(
         WHERE match_report_id = '00000000-0000-0000-0000-00000000d299'::uuid)
       AND (SELECT count(*) = 1 FROM public.audit_logs
         WHERE entity_type = 'match_report'
-          AND entity_id = '00000000-0000-0000-0000-00000000d299')
+          AND entity_id = '00000000-0000-0000-0000-00000000d299'
+          AND action_type = 'match_report_resolved')
+      AND (SELECT count(*) = 1 FROM public.audit_logs
+        WHERE entity_type = 'match_report'
+          AND entity_id = '00000000-0000-0000-0000-00000000d299'
+          AND action_type = 'match_report_stats_published')
       AND (SELECT count(*) = 1 FROM public.admin_audit_log
         WHERE entity_type = 'match_report'
           AND entity_id = '00000000-0000-0000-0000-00000000d299')
@@ -262,7 +300,7 @@ SELECT ok(
         WHERE aggregate_type = 'match_report'
           AND aggregate_id = '00000000-0000-0000-0000-00000000d299')$$
   ) AS verification(verified boolean)),
-  'the match-report race commits one stat set, one audit pair, and one standings event'
+  'the match-report race commits one stat set, two audited domain changes, and one standings event'
 );
 
 DO $cleanup$
@@ -277,9 +315,14 @@ BEGIN
     DELETE FROM public.admin_audit_log
     WHERE entity_id LIKE 'db02-conc-%'
        OR entity_id = '00000000-0000-0000-0000-00000000d299';
+    DELETE FROM public.player_stats WHERE match_id = 'db02-conc-match';
     DELETE FROM public.player_match_stats WHERE match_id = 'db02-conc-match';
     DELETE FROM public.match_reports WHERE id = '00000000-0000-0000-0000-00000000d299'::uuid;
     DELETE FROM public.matches WHERE id = 'db02-conc-match';
+    DELETE FROM public.season_rosters WHERE season_id = 'db02-conc-season';
+    DELETE FROM public.players
+    WHERE id LIKE 'db02-conc-home-player-%'
+       OR id LIKE 'db02-conc-away-player-%';
     DELETE FROM public.players WHERE discord_id = 'db02-conc-registration-discord';
     DELETE FROM public.season_orgs WHERE season_id = 'db02-conc-season';
     DELETE FROM public.orgs WHERE id IN ('db02-conc-home', 'db02-conc-away');

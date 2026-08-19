@@ -48,3 +48,14 @@ reference and ambiguity; apply rechecks under locks, transfers live history to
 the canonical identity, preserves immutable evidence, records the superadmin
 actor, and deletes the duplicate in one transaction. Exact retries return the
 recorded result instead of applying a second mutation.
+
+`20260818120000_match_report_host_review.sql` connects official result capture
+to public season statistics. It adds recoverable pending-action/report linkage,
+private one-time host capabilities, roster-scoped identity diagnostics,
+optimistic host correction and submission, and an atomic action/report creation
+RPC for the synchronous bot projection flow. Final admin approval owns both the
+linked action and report. Its idempotent, provenance-guarded set replacement
+writes `player_stats`, refreshes every affected `players.stats` aggregate,
+repairs safe legacy completed reports, and preserves audited Discord and
+standings outbox events. Denied reports retain an audited snapshot before a
+later result can rebind the match's unique report slot.
