@@ -914,10 +914,12 @@ CREATE TEMP TABLE db01_concurrent_action_results (
 DO $action_race_begin$
 BEGIN
   PERFORM dblink_exec('db01_worker_a', 'BEGIN');
+  -- Match-result decisions lock the match parent before child action/report
+  -- rows, so both workers contend at the same parent row first.
   PERFORM locked.id
   FROM dblink(
     'db01_worker_a',
-    $$SELECT id FROM public.pending_actions
+    $$SELECT id FROM public.matches
       WHERE id = 'db01-conc-action'
       FOR UPDATE$$
   ) AS locked(id text);
@@ -933,7 +935,7 @@ $action_race_begin$;
 SELECT is(
   dblink_is_busy('db01_worker_b'),
   1,
-  'the second action decision is blocked behind worker A row lock'
+  'the second action decision is blocked behind worker A match lock'
 );
 INSERT INTO db01_concurrent_action_results
 SELECT 'worker-a', result::jsonb
@@ -1260,7 +1262,12 @@ SELECT ok(
         'claim_operation_outbox', 'complete_operation_outbox',
         'fail_operation_outbox', 'enqueue_operation_outbox'
       )
-      AND NOT (p.proconfig @> ARRAY['search_path=pg_catalog, public'])
+      AND NOT (
+        (p.proname = 'resolve_pending_action'
+          AND p.proconfig @> ARRAY['search_path=pg_catalog, public, private'])
+        OR (p.proname <> 'resolve_pending_action'
+          AND p.proconfig @> ARRAY['search_path=pg_catalog, public'])
+      )
   ),
   'every SECURITY DEFINER entry point pins its search_path'
 );

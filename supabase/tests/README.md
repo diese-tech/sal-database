@@ -37,6 +37,10 @@ The database contract includes these pgTAP suites:
 - `026_captain_token_cardinality.test.sql` for multiple independently
   consumable captain/owner links per draft team, globally unique token hashes,
   one-time consumption isolation, expiration, and organization scope.
+- `027_match_report_host_review.test.sql` for recoverable result-action/report
+  linkage, one-time host capabilities, roster diagnostics, host authorization,
+  optimistic review submission, canonical stat publication, aggregate refresh,
+  and terminal idempotency.
 
 A `contract.json` is rejected until all required suites exist. CI runs
 them against a clean local reset, and the protected deployment runs them

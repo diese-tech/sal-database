@@ -908,6 +908,44 @@ export type Database = {
         }
         Relationships: []
       }
+      match_report_host_tokens: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          host_discord_id: string
+          id: string
+          match_report_id: string
+          token_hash: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          host_discord_id: string
+          id?: string
+          match_report_id: string
+          token_hash: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          host_discord_id?: string
+          id?: string
+          match_report_id?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_report_host_tokens_match_report_id_fkey"
+            columns: ["match_report_id"]
+            isOneToOne: false
+            referencedRelation: "match_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       match_reports: {
         Row: {
           away_score: number | null
@@ -915,10 +953,14 @@ export type Database = {
           division_id: string
           extracted_data: Json | null
           home_score: number | null
+          host_discord_id: string | null
+          host_submitted_at: string | null
           id: string
           match_id: string
+          pending_action_id: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          revision: number
           screenshot_urls: string[]
           season_id: string
           status: string
@@ -931,10 +973,14 @@ export type Database = {
           division_id: string
           extracted_data?: Json | null
           home_score?: number | null
+          host_discord_id?: string | null
+          host_submitted_at?: string | null
           id?: string
           match_id: string
+          pending_action_id?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          revision?: number
           screenshot_urls?: string[]
           season_id: string
           status?: string
@@ -947,10 +993,14 @@ export type Database = {
           division_id?: string
           extracted_data?: Json | null
           home_score?: number | null
+          host_discord_id?: string | null
+          host_submitted_at?: string | null
           id?: string
           match_id?: string
+          pending_action_id?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          revision?: number
           screenshot_urls?: string[]
           season_id?: string
           status?: string
@@ -963,6 +1013,13 @@ export type Database = {
             columns: ["match_id"]
             isOneToOne: true
             referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_reports_pending_action_id_fkey"
+            columns: ["pending_action_id"]
+            isOneToOne: true
+            referencedRelation: "pending_actions"
             referencedColumns: ["id"]
           },
         ]
@@ -1481,6 +1538,7 @@ export type Database = {
           id: string
           kills: number | null
           match_id: string
+          match_report_id: string | null
           org_id: string | null
           pending_stat_record_id: string | null
           player_id: string
@@ -1501,6 +1559,7 @@ export type Database = {
           id?: string
           kills?: number | null
           match_id: string
+          match_report_id?: string | null
           org_id?: string | null
           pending_stat_record_id?: string | null
           player_id: string
@@ -1521,6 +1580,7 @@ export type Database = {
           id?: string
           kills?: number | null
           match_id?: string
+          match_report_id?: string | null
           org_id?: string | null
           pending_stat_record_id?: string | null
           player_id?: string
@@ -1534,6 +1594,13 @@ export type Database = {
             columns: ["match_id"]
             isOneToOne: false
             referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_stats_match_report_id_fkey"
+            columns: ["match_report_id"]
+            isOneToOne: false
+            referencedRelation: "match_reports"
             referencedColumns: ["id"]
           },
           {
@@ -2310,6 +2377,10 @@ export type Database = {
         }
         Returns: Json
       }
+      consume_match_report_host_token: {
+        Args: { p_token_hash: string }
+        Returns: Json
+      }
       correct_scouter_game: {
         Args: {
           p_actor_discord_id: string
@@ -2339,6 +2410,10 @@ export type Database = {
           p_subject: string
           p_ticket_id: string
         }
+        Returns: Json
+      }
+      create_match_result_action_with_report: {
+        Args: { p_host_discord_id: string; p_match_id: string; p_payload: Json }
         Returns: Json
       }
       create_pending_action: {
@@ -2378,6 +2453,10 @@ export type Database = {
         }
         Returns: string
       }
+      ensure_match_report_for_pending_action: {
+        Args: { p_host_discord_id: string; p_pending_action_id: string }
+        Returns: Json
+      }
       fail_operation_outbox: {
         Args: {
           p_error: string
@@ -2401,6 +2480,19 @@ export type Database = {
           p_smite_match_id?: string
           p_winning_side: string
         }
+        Returns: Json
+      }
+      issue_match_report_host_token: {
+        Args: {
+          p_expires_at: string
+          p_host_discord_id: string
+          p_match_report_id: string
+          p_token_hash: string
+        }
+        Returns: Json
+      }
+      match_report_extraction_diagnostics: {
+        Args: { p_games: Json; p_match_report_id: string }
         Returns: Json
       }
       merge_organization: {
@@ -2486,6 +2578,15 @@ export type Database = {
         }
         Returns: Json
       }
+      revise_match_report_extraction: {
+        Args: {
+          p_expected_revision: number
+          p_games: Json
+          p_host_discord_id: string
+          p_match_report_id: string
+        }
+        Returns: Json
+      }
       revise_scouter_game_draft: {
         Args: {
           p_draft_id: string
@@ -2523,6 +2624,14 @@ export type Database = {
           p_total_picks: number
         }
         Returns: undefined
+      }
+      submit_match_report_host_review: {
+        Args: {
+          p_expected_revision: number
+          p_host_discord_id: string
+          p_match_report_id: string
+        }
+        Returns: Json
       }
       undo_last_pick: { Args: { p_draft_room_id: string }; Returns: undefined }
       update_bug_report_status: {
