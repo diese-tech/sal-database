@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(36);
+SELECT plan(39);
 
 SELECT has_table(
   'public',
@@ -112,6 +112,45 @@ SELECT throws_ok(
   )$$,
   '22023', 'Offered players contains a duplicate or invalid player.',
   'duplicate player selections are rejected at the authoritative boundary'
+);
+
+CREATE TEMP TABLE trade_needs_info_base AS
+SELECT public.create_roster_trade(
+  'discord-cap-a', 'trade-season', 'solar', 'trade-org-a', 'trade-org-b',
+  ARRAY['trade-a2'], ARRAY['trade-b2'], 'trade-channel', 'discord_workflow'
+) AS result;
+SELECT throws_ok(
+  format(
+    'SELECT public.resolve_pending_action(%L, %L, %L, NULL)',
+    (SELECT result ->> 'pendingActionId' FROM trade_needs_info_base), 'trade-admin', 'deny'
+  ),
+  '22023', 'A note is required for denial and Needs Info.',
+  'an administrator cannot deny a roster trade without a durable reason'
+);
+SELECT throws_ok(
+  format(
+    'SELECT public.resolve_pending_action(%L, %L, %L, %L)',
+    (SELECT result ->> 'pendingActionId' FROM trade_needs_info_base),
+    'trade-admin', 'needs_info', '   '
+  ),
+  '22023', 'A note is required for denial and Needs Info.',
+  'an administrator cannot request information without a durable reason'
+);
+CREATE TEMP TABLE trade_needs_info AS
+SELECT public.resolve_pending_action(
+  (SELECT result ->> 'pendingActionId' FROM trade_needs_info_base),
+  'trade-admin', 'needs_info', '  Need roster evidence.  '
+) AS result;
+SELECT ok(
+  (SELECT result ->> 'note' = 'Need roster evidence.' FROM trade_needs_info)
+  AND EXISTS (
+    SELECT 1 FROM public.audit_logs
+    WHERE action_type = 'pending_action_needs_info'
+      AND pending_action_id = (SELECT result ->> 'pendingActionId' FROM trade_needs_info_base)
+      AND actor_discord_id = 'trade-admin'
+      AND note = 'Need roster evidence.'
+  ),
+  'Needs Info normalizes its note and appends an immutable administrator audit record'
 );
 
 CREATE TEMP TABLE trade_uneven AS

@@ -836,6 +836,14 @@ BEGIN
       MESSAGE = 'A participating organization is no longer active in this season division.';
   END IF;
 
+  PERFORM season_org.org_id
+  FROM public.season_orgs AS season_org
+  WHERE season_org.season_id = v_trade.season_id
+    AND season_org.division_id = v_trade.division_id
+    AND season_org.org_id IN (v_trade.proposer_org_id, v_trade.receiver_org_id)
+  ORDER BY season_org.org_id
+  FOR UPDATE;
+
   SELECT max_roster_size, trades_open INTO v_max_roster_size, v_trades_open
   FROM public.season_transaction_settings
   WHERE season_id = v_trade.season_id AND division_id = v_trade.division_id;
@@ -994,6 +1002,8 @@ DECLARE
   v_trade public.roster_transactions%ROWTYPE;
   v_result jsonb;
   v_error text;
+  v_decision text := lower(btrim(COALESCE(p_decision, '')));
+  v_note text := NULLIF(btrim(COALESCE(p_note, '')), '');
 BEGIN
   SELECT * INTO v_action FROM public.pending_actions WHERE id = p_action_id;
   IF NOT FOUND OR v_action.type <> 'roster_trade' THEN
@@ -1016,7 +1026,13 @@ BEGIN
       'finalStatus', v_action.status, 'matchId', NULL, 'note', v_action.admin_note,
       'outboxIds', '[]'::jsonb);
   END IF;
-  IF lower(btrim(COALESCE(p_decision, ''))) = 'approve' THEN
+  IF v_decision = 'needs_info' AND v_action.status <> 'pending' THEN
+    RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'Needs Info is allowed only from pending.';
+  END IF;
+  IF v_decision IN ('deny', 'needs_info') AND v_note IS NULL THEN
+    RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'A note is required for denial and Needs Info.';
+  END IF;
+  IF v_decision = 'approve' THEN
     BEGIN
       IF v_trade.status = 'blocked' THEN
         UPDATE public.roster_transactions
@@ -1061,17 +1077,17 @@ BEGIN
         'finalStatus', 'pending_info', 'matchId', NULL, 'note', v_error,
         'transactionId', v_trade.id, 'outboxIds', '[]'::jsonb);
     END;
-  ELSIF lower(btrim(COALESCE(p_decision, ''))) = 'deny' THEN
+  ELSIF v_decision = 'deny' THEN
     UPDATE public.roster_transactions
     SET status = 'denied', admin_decided_by_discord_id = p_actor_discord_id,
-        admin_decided_at = now(), admin_note = NULLIF(btrim(COALESCE(p_note, '')), ''),
+        admin_decided_at = now(), admin_note = v_note,
         cancelled_at = now(), updated_at = now()
     WHERE id = v_trade.id;
     UPDATE public.roster_transaction_revisions SET status = 'declined'
     WHERE transaction_id = v_trade.id AND revision = v_trade.current_revision;
     UPDATE public.pending_actions
     SET status = 'denied', approved_by_discord_id = p_actor_discord_id,
-        approved_at = now(), admin_note = NULLIF(btrim(COALESCE(p_note, '')), ''), updated_at = now()
+        approved_at = now(), admin_note = v_note, updated_at = now()
     WHERE id = v_action.id;
     INSERT INTO public.audit_logs (
       action_type, entity_type, entity_id, pending_action_id, actor_discord_id,
@@ -1079,7 +1095,7 @@ BEGIN
     ) VALUES (
       'roster_trade_denied', 'roster_transaction', v_trade.id::text,
       v_action.id, p_actor_discord_id,
-      jsonb_build_object('status', v_trade.status), jsonb_build_object('status', 'denied'), p_note
+      jsonb_build_object('status', v_trade.status), jsonb_build_object('status', 'denied'), v_note
     );
     IF v_trade.proposal_channel_id IS NOT NULL THEN
       PERFORM public.enqueue_operation_outbox(
@@ -1099,10 +1115,18 @@ BEGIN
     END IF;
     RETURN jsonb_build_object('code', 'denied', 'applied', true,
       'actionId', v_action.id, 'actionType', v_action.type,
-      'finalStatus', 'denied', 'matchId', NULL, 'note', p_note, 'outboxIds', '[]'::jsonb);
-  ELSIF lower(btrim(COALESCE(p_decision, ''))) = 'needs_info' THEN
-    UPDATE public.pending_actions SET status = 'pending_info', admin_note = p_note, updated_at = now()
+      'finalStatus', 'denied', 'matchId', NULL, 'note', v_note, 'outboxIds', '[]'::jsonb);
+  ELSIF v_decision = 'needs_info' THEN
+    UPDATE public.pending_actions SET status = 'pending_info', admin_note = v_note, updated_at = now()
     WHERE id = v_action.id;
+    INSERT INTO public.audit_logs (
+      action_type, entity_type, entity_id, pending_action_id, actor_discord_id,
+      old_value_json, new_value_json, note
+    ) VALUES (
+      'pending_action_needs_info', 'pending_action', v_action.id,
+      v_action.id, p_actor_discord_id,
+      jsonb_build_object('status', v_action.status), jsonb_build_object('status', 'pending_info'), v_note
+    );
     IF v_action.admin_review_message_id IS NOT NULL THEN
       PERFORM public.enqueue_operation_outbox(
         'discord_review_projection', 'pending_action', v_action.id,
@@ -1113,7 +1137,7 @@ BEGIN
     END IF;
     RETURN jsonb_build_object('code', 'needs_info', 'applied', true,
       'actionId', v_action.id, 'actionType', v_action.type,
-      'finalStatus', 'pending_info', 'matchId', NULL, 'note', p_note, 'outboxIds', '[]'::jsonb);
+      'finalStatus', 'pending_info', 'matchId', NULL, 'note', v_note, 'outboxIds', '[]'::jsonb);
   END IF;
   RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Decision must be approve, deny, or needs_info.';
 END;
