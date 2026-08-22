@@ -325,6 +325,38 @@ export type Database = {
         }
         Relationships: []
       }
+      captain_role_mappings: {
+        Row: {
+          created_at: string
+          discord_role_id: string
+          division_id: string
+          updated_at: string
+          updated_by_discord_id: string
+        }
+        Insert: {
+          created_at?: string
+          discord_role_id: string
+          division_id: string
+          updated_at?: string
+          updated_by_discord_id: string
+        }
+        Update: {
+          created_at?: string
+          discord_role_id?: string
+          division_id?: string
+          updated_at?: string
+          updated_by_discord_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "captain_role_mappings_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: true
+            referencedRelation: "divisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       captain_shortlists: {
         Row: {
           created_at: string
@@ -401,12 +433,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      captain_role_mappings: {
-        Row: { created_at: string; discord_role_id: string; division_id: string; updated_at: string; updated_by_discord_id: string }
-        Insert: { created_at?: string; discord_role_id: string; division_id: string; updated_at?: string; updated_by_discord_id: string }
-        Update: { created_at?: string; discord_role_id?: string; division_id?: string; updated_at?: string; updated_by_discord_id?: string }
-        Relationships: [{ foreignKeyName: "captain_role_mappings_division_id_fkey"; columns: ["division_id"]; isOneToOne: true; referencedRelation: "divisions"; referencedColumns: ["id"] }]
       }
       division_role_mappings: {
         Row: {
@@ -1212,12 +1238,6 @@ export type Database = {
         }
         Relationships: []
       }
-      organization_role_mappings: {
-        Row: { created_at: string; discord_role_id: string; org_id: string; updated_at: string; updated_by_discord_id: string }
-        Insert: { created_at?: string; discord_role_id: string; org_id: string; updated_at?: string; updated_by_discord_id: string }
-        Update: { created_at?: string; discord_role_id?: string; org_id?: string; updated_at?: string; updated_by_discord_id?: string }
-        Relationships: [{ foreignKeyName: "organization_role_mappings_org_id_fkey"; columns: ["org_id"]; isOneToOne: true; referencedRelation: "orgs"; referencedColumns: ["id"] }]
-      }
       org_brands: {
         Row: {
           id: string
@@ -1235,6 +1255,38 @@ export type Database = {
           tag?: string
         }
         Relationships: []
+      }
+      organization_role_mappings: {
+        Row: {
+          created_at: string
+          discord_role_id: string
+          org_id: string
+          updated_at: string
+          updated_by_discord_id: string
+        }
+        Insert: {
+          created_at?: string
+          discord_role_id: string
+          org_id: string
+          updated_at?: string
+          updated_by_discord_id: string
+        }
+        Update: {
+          created_at?: string
+          discord_role_id?: string
+          org_id?: string
+          updated_at?: string
+          updated_by_discord_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_role_mappings_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       orgs: {
         Row: {
@@ -1787,52 +1839,277 @@ export type Database = {
         ]
       }
       roster_transaction_consents: {
-        Row: { actor_discord_id: string | null; consented: boolean; consented_at: string | null; org_id: string; revision: number; revoked_at: string | null; transaction_id: string }
-        Insert: { actor_discord_id?: string | null; consented?: boolean; consented_at?: string | null; org_id: string; revision: number; revoked_at?: string | null; transaction_id: string }
-        Update: { actor_discord_id?: string | null; consented?: boolean; consented_at?: string | null; org_id?: string; revision?: number; revoked_at?: string | null; transaction_id?: string }
+        Row: {
+          actor_discord_id: string | null
+          consented: boolean
+          consented_at: string | null
+          org_id: string
+          revision: number
+          revoked_at: string | null
+          transaction_id: string
+        }
+        Insert: {
+          actor_discord_id?: string | null
+          consented?: boolean
+          consented_at?: string | null
+          org_id: string
+          revision: number
+          revoked_at?: string | null
+          transaction_id: string
+        }
+        Update: {
+          actor_discord_id?: string | null
+          consented?: boolean
+          consented_at?: string | null
+          org_id?: string
+          revision?: number
+          revoked_at?: string | null
+          transaction_id?: string
+        }
         Relationships: [
-          { foreignKeyName: "roster_transaction_consents_org_id_fkey"; columns: ["org_id"]; isOneToOne: false; referencedRelation: "orgs"; referencedColumns: ["id"] },
-          { foreignKeyName: "roster_transaction_consents_transaction_id_revision_fkey"; columns: ["transaction_id", "revision"]; isOneToOne: false; referencedRelation: "roster_transaction_revisions"; referencedColumns: ["transaction_id", "revision"] },
+          {
+            foreignKeyName: "roster_transaction_consents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roster_transaction_consents_transaction_id_revision_fkey"
+            columns: ["transaction_id", "revision"]
+            isOneToOne: false
+            referencedRelation: "roster_transaction_revisions"
+            referencedColumns: ["transaction_id", "revision"]
+          },
         ]
       }
       roster_transaction_movements: {
-        Row: { created_at: string; from_org_id: string; player_id: string; revision: number; to_org_id: string; transaction_id: string }
-        Insert: { created_at?: string; from_org_id: string; player_id: string; revision: number; to_org_id: string; transaction_id: string }
-        Update: { created_at?: string; from_org_id?: string; player_id?: string; revision?: number; to_org_id?: string; transaction_id?: string }
+        Row: {
+          created_at: string
+          from_org_id: string
+          player_id: string
+          revision: number
+          to_org_id: string
+          transaction_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_org_id: string
+          player_id: string
+          revision: number
+          to_org_id: string
+          transaction_id: string
+        }
+        Update: {
+          created_at?: string
+          from_org_id?: string
+          player_id?: string
+          revision?: number
+          to_org_id?: string
+          transaction_id?: string
+        }
         Relationships: [
-          { foreignKeyName: "roster_transaction_movements_from_org_id_fkey"; columns: ["from_org_id"]; isOneToOne: false; referencedRelation: "orgs"; referencedColumns: ["id"] },
-          { foreignKeyName: "roster_transaction_movements_player_id_fkey"; columns: ["player_id"]; isOneToOne: false; referencedRelation: "players"; referencedColumns: ["id"] },
-          { foreignKeyName: "roster_transaction_movements_to_org_id_fkey"; columns: ["to_org_id"]; isOneToOne: false; referencedRelation: "orgs"; referencedColumns: ["id"] },
-          { foreignKeyName: "roster_transaction_movements_transaction_id_revision_fkey"; columns: ["transaction_id", "revision"]; isOneToOne: false; referencedRelation: "roster_transaction_revisions"; referencedColumns: ["transaction_id", "revision"] },
+          {
+            foreignKeyName: "roster_transaction_movements_from_org_id_fkey"
+            columns: ["from_org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roster_transaction_movements_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roster_transaction_movements_to_org_id_fkey"
+            columns: ["to_org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roster_transaction_movements_transaction_id_revision_fkey"
+            columns: ["transaction_id", "revision"]
+            isOneToOne: false
+            referencedRelation: "roster_transaction_revisions"
+            referencedColumns: ["transaction_id", "revision"]
+          },
         ]
       }
       roster_transaction_revisions: {
-        Row: { created_at: string; created_by_discord_id: string; proposer_org_id: string; receiver_org_id: string; revision: number; status: string; supersedes_revision: number | null; transaction_id: string }
-        Insert: { created_at?: string; created_by_discord_id: string; proposer_org_id: string; receiver_org_id: string; revision: number; status?: string; supersedes_revision?: number | null; transaction_id: string }
-        Update: { created_at?: string; created_by_discord_id?: string; proposer_org_id?: string; receiver_org_id?: string; revision?: number; status?: string; supersedes_revision?: number | null; transaction_id?: string }
+        Row: {
+          created_at: string
+          created_by_discord_id: string
+          proposer_org_id: string
+          receiver_org_id: string
+          revision: number
+          status: string
+          supersedes_revision: number | null
+          transaction_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_discord_id: string
+          proposer_org_id: string
+          receiver_org_id: string
+          revision: number
+          status?: string
+          supersedes_revision?: number | null
+          transaction_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by_discord_id?: string
+          proposer_org_id?: string
+          receiver_org_id?: string
+          revision?: number
+          status?: string
+          supersedes_revision?: number | null
+          transaction_id?: string
+        }
         Relationships: [
-          { foreignKeyName: "roster_transaction_revisions_proposer_org_id_fkey"; columns: ["proposer_org_id"]; isOneToOne: false; referencedRelation: "orgs"; referencedColumns: ["id"] },
-          { foreignKeyName: "roster_transaction_revisions_receiver_org_id_fkey"; columns: ["receiver_org_id"]; isOneToOne: false; referencedRelation: "orgs"; referencedColumns: ["id"] },
-          { foreignKeyName: "roster_transaction_revisions_supersedes_fkey"; columns: ["transaction_id", "supersedes_revision"]; isOneToOne: false; referencedRelation: "roster_transaction_revisions"; referencedColumns: ["transaction_id", "revision"] },
-          { foreignKeyName: "roster_transaction_revisions_transaction_id_fkey"; columns: ["transaction_id"]; isOneToOne: false; referencedRelation: "roster_transactions"; referencedColumns: ["id"] },
+          {
+            foreignKeyName: "roster_transaction_revisions_proposer_org_id_fkey"
+            columns: ["proposer_org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roster_transaction_revisions_receiver_org_id_fkey"
+            columns: ["receiver_org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roster_transaction_revisions_supersedes_fkey"
+            columns: ["transaction_id", "supersedes_revision"]
+            isOneToOne: false
+            referencedRelation: "roster_transaction_revisions"
+            referencedColumns: ["transaction_id", "revision"]
+          },
+          {
+            foreignKeyName: "roster_transaction_revisions_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "roster_transactions"
+            referencedColumns: ["id"]
+          },
         ]
       }
       roster_transactions: {
         Row: {
-          accepted_at: string | null; admin_decided_at: string | null; admin_decided_by_discord_id: string | null; admin_note: string | null; cancelled_at: string | null; completed_at: string | null; created_at: string; current_revision: number; division_id: string; execution_claimed_at: string | null; id: string; initiated_by_discord_id: string; pending_action_id: string; proposal_channel_id: string | null; proposal_message_id: string | null; proposer_org_id: string; receiver_org_id: string; season_id: string; source: string; status: string; transaction_type: string; updated_at: string
+          accepted_at: string | null
+          admin_decided_at: string | null
+          admin_decided_by_discord_id: string | null
+          admin_note: string | null
+          cancelled_at: string | null
+          completed_at: string | null
+          created_at: string
+          current_revision: number
+          division_id: string
+          execution_claimed_at: string | null
+          id: string
+          initiated_by_discord_id: string
+          pending_action_id: string
+          proposal_channel_id: string | null
+          proposal_message_id: string | null
+          proposer_org_id: string
+          receiver_org_id: string
+          season_id: string
+          source: string
+          status: string
+          transaction_type: string
+          updated_at: string
         }
         Insert: {
-          accepted_at?: string | null; admin_decided_at?: string | null; admin_decided_by_discord_id?: string | null; admin_note?: string | null; cancelled_at?: string | null; completed_at?: string | null; created_at?: string; current_revision?: number; division_id: string; execution_claimed_at?: string | null; id?: string; initiated_by_discord_id: string; pending_action_id: string; proposal_channel_id?: string | null; proposal_message_id?: string | null; proposer_org_id: string; receiver_org_id: string; season_id: string; source: string; status?: string; transaction_type?: string; updated_at?: string
+          accepted_at?: string | null
+          admin_decided_at?: string | null
+          admin_decided_by_discord_id?: string | null
+          admin_note?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          current_revision?: number
+          division_id: string
+          execution_claimed_at?: string | null
+          id?: string
+          initiated_by_discord_id: string
+          pending_action_id: string
+          proposal_channel_id?: string | null
+          proposal_message_id?: string | null
+          proposer_org_id: string
+          receiver_org_id: string
+          season_id: string
+          source: string
+          status?: string
+          transaction_type?: string
+          updated_at?: string
         }
         Update: {
-          accepted_at?: string | null; admin_decided_at?: string | null; admin_decided_by_discord_id?: string | null; admin_note?: string | null; cancelled_at?: string | null; completed_at?: string | null; created_at?: string; current_revision?: number; division_id?: string; execution_claimed_at?: string | null; id?: string; initiated_by_discord_id?: string; pending_action_id?: string; proposal_channel_id?: string | null; proposal_message_id?: string | null; proposer_org_id?: string; receiver_org_id?: string; season_id?: string; source?: string; status?: string; transaction_type?: string; updated_at?: string
+          accepted_at?: string | null
+          admin_decided_at?: string | null
+          admin_decided_by_discord_id?: string | null
+          admin_note?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          current_revision?: number
+          division_id?: string
+          execution_claimed_at?: string | null
+          id?: string
+          initiated_by_discord_id?: string
+          pending_action_id?: string
+          proposal_channel_id?: string | null
+          proposal_message_id?: string | null
+          proposer_org_id?: string
+          receiver_org_id?: string
+          season_id?: string
+          source?: string
+          status?: string
+          transaction_type?: string
+          updated_at?: string
         }
         Relationships: [
-          { foreignKeyName: "roster_transactions_division_id_fkey"; columns: ["division_id"]; isOneToOne: false; referencedRelation: "divisions"; referencedColumns: ["id"] },
-          { foreignKeyName: "roster_transactions_pending_action_id_fkey"; columns: ["pending_action_id"]; isOneToOne: true; referencedRelation: "pending_actions"; referencedColumns: ["id"] },
-          { foreignKeyName: "roster_transactions_proposer_org_id_fkey"; columns: ["proposer_org_id"]; isOneToOne: false; referencedRelation: "orgs"; referencedColumns: ["id"] },
-          { foreignKeyName: "roster_transactions_receiver_org_id_fkey"; columns: ["receiver_org_id"]; isOneToOne: false; referencedRelation: "orgs"; referencedColumns: ["id"] },
-          { foreignKeyName: "roster_transactions_season_id_fkey"; columns: ["season_id"]; isOneToOne: false; referencedRelation: "seasons"; referencedColumns: ["id"] },
+          {
+            foreignKeyName: "roster_transactions_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roster_transactions_pending_action_id_fkey"
+            columns: ["pending_action_id"]
+            isOneToOne: true
+            referencedRelation: "pending_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roster_transactions_proposer_org_id_fkey"
+            columns: ["proposer_org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roster_transactions_receiver_org_id_fkey"
+            columns: ["receiver_org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roster_transactions_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
         ]
       }
       scouter_game_corrections: {
@@ -2207,15 +2484,6 @@ export type Database = {
           },
         ]
       }
-      season_transaction_settings: {
-        Row: { created_at: string; division_id: string; max_roster_size: number; season_id: string; trades_open: boolean; updated_at: string; updated_by_discord_id: string }
-        Insert: { created_at?: string; division_id: string; max_roster_size: number; season_id: string; trades_open?: boolean; updated_at?: string; updated_by_discord_id: string }
-        Update: { created_at?: string; division_id?: string; max_roster_size?: number; season_id?: string; trades_open?: boolean; updated_at?: string; updated_by_discord_id?: string }
-        Relationships: [
-          { foreignKeyName: "season_transaction_settings_division_id_fkey"; columns: ["division_id"]; isOneToOne: false; referencedRelation: "divisions"; referencedColumns: ["id"] },
-          { foreignKeyName: "season_transaction_settings_season_id_fkey"; columns: ["season_id"]; isOneToOne: false; referencedRelation: "seasons"; referencedColumns: ["id"] },
-        ]
-      }
       season_rosters: {
         Row: {
           created_at: string
@@ -2275,6 +2543,51 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "season_orgs"
             referencedColumns: ["season_id", "org_id", "division_id"]
+          },
+        ]
+      }
+      season_transaction_settings: {
+        Row: {
+          created_at: string
+          division_id: string
+          max_roster_size: number
+          season_id: string
+          trades_open: boolean
+          updated_at: string
+          updated_by_discord_id: string
+        }
+        Insert: {
+          created_at?: string
+          division_id: string
+          max_roster_size: number
+          season_id: string
+          trades_open?: boolean
+          updated_at?: string
+          updated_by_discord_id: string
+        }
+        Update: {
+          created_at?: string
+          division_id?: string
+          max_roster_size?: number
+          season_id?: string
+          trades_open?: boolean
+          updated_at?: string
+          updated_by_discord_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "season_transaction_settings_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "season_transaction_settings_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2365,7 +2678,11 @@ export type Database = {
     }
     Functions: {
       accept_roster_trade: {
-        Args: { p_actor_discord_id: string; p_expected_revision: number; p_transaction_id: string }
+        Args: {
+          p_actor_discord_id: string
+          p_expected_revision: number
+          p_transaction_id: string
+        }
         Returns: Json
       }
       begin_bug_report_attempt: {
@@ -2377,12 +2694,17 @@ export type Database = {
         }
         Returns: Json
       }
-      cancel_scouter_game_draft: {
-        Args: { p_draft_id: string; p_hosted_by_discord_id: string }
+      cancel_roster_trade: {
+        Args: {
+          p_actor_discord_id: string
+          p_expected_revision: number
+          p_mode: string
+          p_transaction_id: string
+        }
         Returns: Json
       }
-      cancel_roster_trade: {
-        Args: { p_actor_discord_id: string; p_expected_revision: number; p_mode: string; p_transaction_id: string }
+      cancel_scouter_game_draft: {
+        Args: { p_draft_id: string; p_hosted_by_discord_id: string }
         Returns: Json
       }
       claim_operation_outbox: {
@@ -2459,10 +2781,6 @@ export type Database = {
         Args: { p_token_hash: string }
         Returns: Json
       }
-      counter_roster_trade: {
-        Args: { p_actor_discord_id: string; p_expected_revision: number; p_offered_player_ids: string[]; p_requested_player_ids: string[]; p_transaction_id: string }
-        Returns: Json
-      }
       correct_scouter_game: {
         Args: {
           p_actor_discord_id: string
@@ -2471,6 +2789,16 @@ export type Database = {
           p_game: Json
           p_reason: string
           p_scouter_game_id: string
+        }
+        Returns: Json
+      }
+      counter_roster_trade: {
+        Args: {
+          p_actor_discord_id: string
+          p_expected_revision: number
+          p_offered_player_ids: string[]
+          p_requested_player_ids: string[]
+          p_transaction_id: string
         }
         Returns: Json
       }
@@ -2509,7 +2837,17 @@ export type Database = {
         Returns: Json
       }
       create_roster_trade: {
-        Args: { p_actor_discord_id: string; p_division_id: string; p_offered_player_ids: string[]; p_proposal_channel_id?: string; p_proposer_org_id: string; p_receiver_org_id: string; p_requested_player_ids: string[]; p_season_id: string; p_source?: string }
+        Args: {
+          p_actor_discord_id: string
+          p_division_id: string
+          p_offered_player_ids: string[]
+          p_proposal_channel_id?: string
+          p_proposer_org_id: string
+          p_receiver_org_id: string
+          p_requested_player_ids: string[]
+          p_season_id: string
+          p_source?: string
+        }
         Returns: Json
       }
       create_scouter_game_draft: {
@@ -2524,12 +2862,16 @@ export type Database = {
         }
         Returns: Json
       }
-      delete_pending_draft_room: {
-        Args: { p_actor_discord_id: string; p_draft_room_id: string }
+      decline_roster_trade: {
+        Args: {
+          p_actor_discord_id: string
+          p_expected_revision: number
+          p_transaction_id: string
+        }
         Returns: Json
       }
-      decline_roster_trade: {
-        Args: { p_actor_discord_id: string; p_expected_revision: number; p_transaction_id: string }
+      delete_pending_draft_room: {
+        Args: { p_actor_discord_id: string; p_draft_room_id: string }
         Returns: Json
       }
       enqueue_operation_outbox: {
@@ -2581,21 +2923,12 @@ export type Database = {
         }
         Returns: Json
       }
-      match_report_extraction_diagnostics: {
-        Args: { p_games: Json; p_match_report_id: string }
-        Returns: Json
-      }
       mark_operation_outbox_needs_reconciliation: {
         Args: { p_error: string; p_outbox_id: string; p_worker_id: string }
         Returns: Json
       }
-      reconcile_operation_outbox: {
-        Args: {
-          p_actor_discord_id: string
-          p_external_id?: string
-          p_outbox_id: string
-          p_retry?: boolean
-        }
+      match_report_extraction_diagnostics: {
+        Args: { p_games: Json; p_match_report_id: string }
         Returns: Json
       }
       merge_organization: {
@@ -2638,6 +2971,15 @@ export type Database = {
           p_access_token_hash?: string
           p_auth_user_id?: string
           p_public_ticket_id: string
+        }
+        Returns: Json
+      }
+      reconcile_operation_outbox: {
+        Args: {
+          p_actor_discord_id: string
+          p_external_id?: string
+          p_outbox_id: string
+          p_retry?: boolean
         }
         Returns: Json
       }
