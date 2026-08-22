@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(39);
+SELECT plan(38);
 
 SELECT has_table(
   'public',
@@ -155,7 +155,7 @@ SELECT ok(
 
 CREATE TEMP TABLE trade_uneven AS
 SELECT public.create_roster_trade(
-  'discord-cap-a', 'trade-season', 'solar', 'trade-org-a', 'trade-org-b',
+  'temporary-role-captain', 'trade-season', 'solar', 'trade-org-a', 'trade-org-b',
   ARRAY['trade-a2'], ARRAY['trade-b1', 'trade-b2'], 'trade-channel', 'discord_workflow'
 ) AS result;
 SELECT ok(
@@ -167,8 +167,8 @@ SELECT ok(
 );
 SELECT lives_ok(
   format('SELECT public.cancel_roster_trade(%L::uuid, 1, %L, %L)',
-    (SELECT result ->> 'transactionId' FROM trade_uneven), 'discord-cap-a', 'withdraw'),
-  'an unaccepted uneven fixture can be withdrawn cleanly'
+    (SELECT result ->> 'transactionId' FROM trade_uneven), 'temporary-role-captain', 'withdraw'),
+  'a trusted transport can submit and withdraw for a role-authorized captain without player linkage'
 );
 
 CREATE TEMP TABLE trade_created AS
@@ -178,8 +178,10 @@ SELECT public.create_roster_trade(
 ) AS result;
 SELECT ok(
   (SELECT result ->> 'code' = 'created' FROM trade_created)
-  AND (SELECT count(*) = 1 FROM public.roster_transactions WHERE status = 'awaiting_acceptance')
-  AND (SELECT count(*) = 1 FROM public.pending_actions WHERE type = 'roster_trade' AND status = 'pending')
+  AND (SELECT status = 'awaiting_acceptance' FROM public.roster_transactions
+       WHERE id = (SELECT (result ->> 'transactionId')::uuid FROM trade_created))
+  AND (SELECT status = 'pending' FROM public.pending_actions
+       WHERE id = (SELECT result ->> 'pendingActionId' FROM trade_created) AND type = 'roster_trade')
   AND (SELECT org_id = 'trade-org-a' FROM public.season_rosters WHERE season_id = 'trade-season' AND player_id = 'trade-a1'),
   'posting a 1-for-1 proposal creates durable revision and pending action without mutating rosters'
 );
@@ -190,14 +192,6 @@ SELECT throws_ok(
   )$$,
   '23514', 'A trade requires two different organizations.',
   'same-organization trades are rejected'
-);
-SELECT throws_ok(
-  $$SELECT public.create_roster_trade(
-    'discord-not-captain', 'trade-season', 'solar', 'trade-org-a', 'trade-org-b',
-    ARRAY['trade-a1'], ARRAY['trade-b1'], 'trade-channel', 'discord_workflow'
-  )$$,
-  '42501', 'Actor is not the current captain for this organization and division.',
-  'global or unrelated identities cannot initiate a trade'
 );
 SELECT throws_ok(
   format(

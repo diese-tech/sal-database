@@ -70,6 +70,11 @@ then link the confirmed Discord message or authorize one explicit retry through
 transaction slice ships here; claims, drops, draft-position swaps, reversals,
 and historical reconciliation execution remain future contracts.
 
+The mutation RPCs are service-role-only. Discord or web role authorization is
+therefore resolved by the trusted caller; actor identifiers are persisted for
+audit, revision authorship, and consent without requiring player/OAuth/roster
+identity linkage at the database boundary.
+
 `20260822123000_roster_trade_player_merge_compatibility.sql` extends the
 existing fail-closed player identity merge to recognize, conflict-check, count,
 lock, and redirect typed roster-transaction movement references. Transaction

@@ -246,34 +246,6 @@ GRANT ALL ON TABLE
   public.roster_transaction_consents
 TO service_role;
 
-CREATE OR REPLACE FUNCTION private.assert_roster_trade_captain(
-  p_season_id text,
-  p_division_id text,
-  p_org_id text,
-  p_actor_discord_id text
-) RETURNS void
-LANGUAGE plpgsql
-SET search_path = pg_catalog, public
-AS $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM public.season_rosters AS roster
-    JOIN public.players AS player ON player.id = roster.player_id
-    WHERE roster.season_id = p_season_id
-      AND roster.division_id = p_division_id
-      AND roster.org_id = p_org_id
-      AND roster.roster_status = 'active'
-      AND roster.is_captain
-      AND player.discord_id = p_actor_discord_id
-  ) THEN
-    RAISE EXCEPTION USING
-      ERRCODE = '42501',
-      MESSAGE = 'Actor is not the current captain for this organization and division.';
-  END IF;
-END;
-$$;
-
 CREATE OR REPLACE FUNCTION private.assert_trade_player_set(
   p_season_id text,
   p_division_id text,
@@ -377,6 +349,9 @@ DECLARE
   v_action_id text := gen_random_uuid()::text;
   v_outbox_id uuid;
 BEGIN
+  -- Discord or web role authorization is resolved by the trusted service
+  -- before this service-role-only RPC; the actor ID remains durable audit and
+  -- revision-consent identity, not a dependency on player/roster linkage.
   IF p_actor_discord_id IS NULL OR btrim(p_actor_discord_id) = '' THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Actor Discord ID is required.';
   END IF;
@@ -404,9 +379,6 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Both organizations must be active in the same season division.';
   END IF;
 
-  PERFORM private.assert_roster_trade_captain(
-    p_season_id, p_division_id, p_proposer_org_id, p_actor_discord_id
-  );
   PERFORM private.assert_trade_player_set(
     p_season_id, p_division_id, p_proposer_org_id, p_offered_player_ids, 'Offered players'
   );
@@ -488,9 +460,6 @@ BEGIN
   IF v_trade.status <> 'awaiting_acceptance' OR v_trade.current_revision <> p_expected_revision THEN
     RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'This trade revision is stale.';
   END IF;
-  PERFORM private.assert_roster_trade_captain(
-    v_trade.season_id, v_trade.division_id, v_trade.receiver_org_id, p_actor_discord_id
-  );
   PERFORM private.assert_trade_player_set(
     v_trade.season_id, v_trade.division_id, v_trade.receiver_org_id,
     p_offered_player_ids, 'Offered players'
@@ -576,10 +545,6 @@ BEGIN
   ) THEN
     RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'A proposer cannot accept their own revision.';
   END IF;
-  PERFORM private.assert_roster_trade_captain(
-    v_trade.season_id, v_trade.division_id, v_trade.receiver_org_id, p_actor_discord_id
-  );
-
   -- Revalidate the exact durable assets before recording binding consent.
   IF EXISTS (
     SELECT 1 FROM public.roster_transaction_movements AS movement
@@ -658,9 +623,6 @@ BEGIN
   IF v_trade.status <> 'awaiting_acceptance' OR v_trade.current_revision <> p_expected_revision THEN
     RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'This trade revision is stale.';
   END IF;
-  PERFORM private.assert_roster_trade_captain(
-    v_trade.season_id, v_trade.division_id, v_trade.receiver_org_id, p_actor_discord_id
-  );
   UPDATE public.roster_transaction_revisions SET status = 'declined'
   WHERE transaction_id = v_trade.id AND revision = v_trade.current_revision;
   UPDATE public.roster_transactions
@@ -717,21 +679,9 @@ BEGIN
     IF v_trade.status <> 'awaiting_acceptance' THEN
       RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Only the current proposer may withdraw this trade.';
     END IF;
-    PERFORM private.assert_roster_trade_captain(
-      v_trade.season_id, v_trade.division_id, v_trade.proposer_org_id, p_actor_discord_id
-    );
   ELSIF p_mode = 'revoke' THEN
-    IF v_trade.status NOT IN ('awaiting_admin', 'blocked') OR NOT EXISTS (
-      SELECT 1
-      FROM public.season_rosters AS roster
-      JOIN public.players AS player ON player.id = roster.player_id
-      WHERE roster.season_id = v_trade.season_id
-        AND roster.division_id = v_trade.division_id
-        AND roster.org_id IN (v_trade.proposer_org_id, v_trade.receiver_org_id)
-        AND roster.roster_status = 'active' AND roster.is_captain
-        AND player.discord_id = p_actor_discord_id
-    ) THEN
-      RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Only a participating captain may revoke accepted consent.';
+    IF v_trade.status NOT IN ('awaiting_admin', 'blocked') THEN
+      RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'This trade has no accepted consent to revoke.';
     END IF;
   ELSE
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Cancellation mode must be withdraw or revoke.';
@@ -740,16 +690,7 @@ BEGIN
   UPDATE public.roster_transaction_consents
   SET consented = false, revoked_at = now()
   WHERE transaction_id = v_trade.id AND revision = v_trade.current_revision
-    AND org_id IN (
-      SELECT roster.org_id
-      FROM public.season_rosters AS roster
-      JOIN public.players AS player ON player.id = roster.player_id
-      WHERE roster.season_id = v_trade.season_id
-        AND roster.division_id = v_trade.division_id
-        AND roster.org_id IN (v_trade.proposer_org_id, v_trade.receiver_org_id)
-        AND roster.roster_status = 'active' AND roster.is_captain
-        AND player.discord_id = p_actor_discord_id
-    );
+    AND consented;
   UPDATE public.roster_transaction_revisions SET status = 'cancelled'
   WHERE transaction_id = v_trade.id AND revision = v_trade.current_revision;
   UPDATE public.roster_transactions
