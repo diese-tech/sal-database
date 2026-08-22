@@ -69,3 +69,8 @@ then link the confirmed Discord message or authorize one explicit retry through
 `reconcile_operation_outbox`; both outcomes are audited. Only the `trade`
 transaction slice ships here; claims, drops, draft-position swaps, reversals,
 and historical reconciliation execution remain future contracts.
+
+`20260822123000_roster_trade_player_merge_compatibility.sql` extends the
+existing fail-closed player identity merge to recognize, conflict-check, count,
+lock, and redirect typed roster-transaction movement references. Transaction
+rows remain intact while duplicate player identities consolidate safely.

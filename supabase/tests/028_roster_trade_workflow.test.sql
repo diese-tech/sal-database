@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(35);
+SELECT plan(36);
 
 SELECT has_table(
   'public',
@@ -204,6 +204,25 @@ SELECT ok(
        WHERE topic = 'discord_organization_role_reconciliation'
          AND aggregate_id = (SELECT result ->> 'transactionId' FROM trade_created)),
   'admin dispatch atomically executes the trade and emits independent bulletin and role-reconciliation work'
+);
+
+UPDATE public.admin_users SET role = 'super_admin' WHERE discord_id = 'trade-admin';
+INSERT INTO public.players (
+  id, discord_username, ign, avatar_initials, avatar_gradient,
+  primary_role, division_id, status
+) VALUES (
+  'trade-a1-canonical', 'a1-canonical', 'Alpha One Canonical', 'AC', 'x',
+  'Flex', 'solar', 'active'
+);
+SELECT public.merge_player('trade-a1', 'trade-a1-canonical', 'trade-admin');
+SELECT ok(
+  NOT EXISTS (SELECT 1 FROM public.players WHERE id = 'trade-a1')
+  AND EXISTS (
+    SELECT 1 FROM public.roster_transaction_movements
+    WHERE transaction_id = (SELECT (result ->> 'transactionId')::uuid FROM trade_created)
+      AND player_id = 'trade-a1-canonical'
+  ),
+  'player identity merge redirects typed transaction history without deleting the movement'
 );
 
 CREATE TEMP TABLE trade_capacity_base AS

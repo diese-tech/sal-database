@@ -6,11 +6,11 @@ SET LOCAL search_path TO extensions, public, pg_catalog;
 SELECT plan(26);
 
 SELECT ok(
-  (SELECT count(*) = 42
+  (SELECT count(*) = 49
    FROM pg_class c
    JOIN pg_namespace n ON n.oid = c.relnamespace
    WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')),
-  'the contract contains all 42 application tables'
+  'the contract contains all 49 application tables'
 );
 SELECT ok(to_regclass('public.players') IS NOT NULL, 'players exists');
 SELECT has_column('public', 'players', 'avatar_url', 'players has a canonical avatar URL');
@@ -35,11 +35,11 @@ SELECT ok(to_regclass('public.bug_reports') IS NOT NULL, 'bug_reports exists');
 SELECT ok(to_regclass('public.bug_report_rate_limits') IS NOT NULL, 'bug report rate limits exist');
 SELECT has_column('public', 'seasons', 'is_current', 'seasons has an explicit current marker');
 SELECT ok(
-  (SELECT count(*) = 43
+  (SELECT count(*) = 50
    FROM pg_proc p
    JOIN pg_namespace n ON n.oid = p.pronamespace
    WHERE n.nspname = 'public'),
-  'the contract contains the 43 verified production functions'
+  'the contract contains the 50 verified production functions'
 );
 SELECT ok(to_regprocedure('public.replace_standings(jsonb)') IS NOT NULL, 'replace_standings exists');
 SELECT ok(to_regprocedure('public.replace_match_report_stats(uuid,jsonb)') IS NOT NULL, 'replace_match_report_stats exists');
