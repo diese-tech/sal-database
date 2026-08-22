@@ -21,6 +21,11 @@ deployment, or authorization to push production by itself.
 - Reusing an outbox deduplication key is valid only when the topic, aggregate,
   event type, and JSON payload exactly match the original immutable event. A
   mismatch raises `23505` and rolls back the caller's transaction.
+- A Discord send with an ambiguous result is moved to `needs_reconciliation`
+  and is not claimed again automatically. After checking the target channel, an
+  administrator calls `reconcile_operation_outbox`: provide the existing
+  message ID to complete the row, or set `p_retry` to `true` to authorize one
+  explicit retry. The choice is recorded in `audit_logs`.
 - A result or reschedule whose match is no longer `scheduled` becomes
   `cancelled` with code `stale_cancelled`; it is never falsely approved.
 

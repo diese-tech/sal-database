@@ -59,3 +59,23 @@ writes `player_stats`, refreshes every affected `players.stats` aggregate,
 repairs safe legacy completed reports, and preserves audited Discord and
 standings outbox events. Denied reports retain an audited snapshot before a
 later result can rebind the match's unique report slot.
+
+`20260822120000_roster_trade_workflow.sql` adds the transport-neutral trade
+ledger, immutable revisions, exact-revision consent, linked pending actions,
+atomic season-roster execution, captain and organization role mappings, durable
+proposal/admin/bulletin/role projections, and an explicit outbox
+`needs_reconciliation` state for ambiguous Discord sends. An administrator can
+then link the confirmed Discord message or authorize one explicit retry through
+`reconcile_operation_outbox`; both outcomes are audited. Only the `trade`
+transaction slice ships here; claims, drops, draft-position swaps, reversals,
+and historical reconciliation execution remain future contracts.
+
+The mutation RPCs are service-role-only. Discord or web role authorization is
+therefore resolved by the trusted caller; actor identifiers are persisted for
+audit, revision authorship, and consent without requiring player/OAuth/roster
+identity linkage at the database boundary.
+
+`20260822123000_roster_trade_player_merge_compatibility.sql` extends the
+existing fail-closed player identity merge to recognize, conflict-check, count,
+lock, and redirect typed roster-transaction movement references. Transaction
+rows remain intact while duplicate player identities consolidate safely.
