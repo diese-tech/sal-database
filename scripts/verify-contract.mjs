@@ -36,6 +36,7 @@ const requiredDatabaseTests = [
   '025_player_identity_merge.test.sql',
   '026_captain_token_cardinality.test.sql',
   '027_match_report_host_review.test.sql',
+  '028_roster_trade_workflow.test.sql',
 ];
 const hash = `sha256:${createHash('sha256').update(types).digest('hex')}`;
 const databaseMajorVersion = readDatabaseMajorVersion();
