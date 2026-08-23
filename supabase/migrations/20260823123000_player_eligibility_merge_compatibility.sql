@@ -375,7 +375,6 @@ BEGIN
   );
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.merge_player(
   p_source_player_id text,
   p_target_player_id text,
@@ -700,5 +699,4 @@ BEGIN
   );
 END;
 $$;
-
 
