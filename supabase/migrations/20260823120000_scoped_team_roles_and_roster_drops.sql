@@ -371,7 +371,7 @@ BEGIN
     WHERE transaction_id = v_drop.id AND revision = v_drop.current_revision
       AND org_id = v_drop.proposer_org_id AND consented
   ) THEN
-    RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'The roster drop does not have captain consent.';
+    RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'The roster drop does not have organization consent.';
   END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.seasons

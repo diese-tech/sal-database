@@ -86,7 +86,7 @@ roster-role projection boundary by storing a team role for the full
 table remains available for older consumers but is no longer a roster
 projection contract. An audited bulk RPC applies reviewed mapping artifacts.
 The same migration extends the existing roster transaction ledger with drops:
-captain submission creates a revision, consent, and pending admin action without
+authorized organization submission creates a revision, consent, and pending admin action without
 changing a roster; an administrator must select the private post-drop
 eligibility state; successful execution atomically writes canonical roster and
 eligibility state plus durable transaction-bulletin and Discord-role outbox

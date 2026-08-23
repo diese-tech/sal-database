@@ -118,7 +118,7 @@ SELECT ok(
   AND (SELECT org_id = 'drop-org-a' AND roster_status = 'active'
        FROM public.season_rosters
        WHERE season_id = 'drop-season' AND player_id = 'drop-player-1'),
-  'captain submission creates a drop ledger and pending action without roster mutation'
+  'authorized submission creates a drop ledger and pending action without roster mutation'
 );
 SELECT is(
   (SELECT count(*)::integer FROM public.operation_outbox
