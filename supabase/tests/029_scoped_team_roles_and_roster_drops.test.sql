@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(25);
+SELECT plan(29);
 
 SELECT has_table(
   'public', 'season_organization_role_mappings',
@@ -93,6 +93,26 @@ SELECT ok(
   ),
   'bulk role mapping is audited once with its reviewed input'
 );
+SELECT lives_ok(
+  $$SELECT public.set_season_organization_role_mappings(
+    'drop-admin', 'drop-season',
+    '[
+      {"division_id":"solar","org_id":"drop-org-a","discord_role_id":"1491163450972311602"},
+      {"division_id":"solar","org_id":"drop-org-b","discord_role_id":"1491162482394529863"}
+    ]'::jsonb
+  )$$,
+  'bulk mapping can atomically exchange two existing team roles'
+);
+SELECT ok(
+  (SELECT discord_role_id = '1491163450972311602'
+   FROM public.season_organization_role_mappings
+   WHERE season_id = 'drop-season' AND division_id = 'solar' AND org_id = 'drop-org-a')
+  AND
+  (SELECT discord_role_id = '1491162482394529863'
+   FROM public.season_organization_role_mappings
+   WHERE season_id = 'drop-season' AND division_id = 'solar' AND org_id = 'drop-org-b'),
+  'role exchange commits the complete reviewed replacement set'
+);
 SELECT throws_ok(
   $$SELECT public.set_season_organization_role_mappings(
     'drop-admin', 'drop-season',
@@ -103,6 +123,41 @@ SELECT throws_ok(
   )$$,
   '22023', 'A Discord team role cannot be assigned more than once in a season.',
   'bulk mapping rejects duplicate Discord team roles'
+);
+
+INSERT INTO public.orgs (
+  id, name, tag, division_id, logo_initials, logo_gradient, primary_color, accent_gradient
+) VALUES
+  ('drop-org-source', 'Drop Organization Source', 'DOS', 'solar', 'DS', 'x', '#000000', 'x'),
+  ('drop-org-target', 'Drop Organization Target', 'DOT', 'solar', 'DT', 'x', '#000000', 'x');
+INSERT INTO public.season_orgs (season_id, org_id, division_id)
+VALUES
+  ('drop-season', 'drop-org-source', 'solar'),
+  ('drop-season', 'drop-org-target', 'solar');
+INSERT INTO public.organization_role_mappings (
+  org_id, discord_role_id, updated_by_discord_id
+) VALUES ('drop-org-source', '17777777777777777', 'drop-admin');
+INSERT INTO public.season_organization_role_mappings (
+  season_id, division_id, org_id, discord_role_id, updated_by_discord_id
+) VALUES (
+  'drop-season', 'solar', 'drop-org-source', '18888888888888888', 'drop-admin'
+);
+SELECT lives_ok(
+  $$SELECT public.merge_organization('drop-org-source', 'drop-org-target', 'merge-admin')$$,
+  'organization merge preserves Discord role mapping contracts'
+);
+SELECT ok(
+  EXISTS (
+    SELECT 1 FROM public.organization_role_mappings
+    WHERE org_id = 'drop-org-target' AND discord_role_id = '17777777777777777'
+  )
+  AND EXISTS (
+    SELECT 1 FROM public.season_organization_role_mappings
+    WHERE season_id = 'drop-season' AND division_id = 'solar'
+      AND org_id = 'drop-org-target' AND discord_role_id = '18888888888888888'
+  )
+  AND NOT EXISTS (SELECT 1 FROM public.orgs WHERE id = 'drop-org-source'),
+  'owner/advisor and season-team roles remain attached to the canonical organization'
 );
 
 CREATE TEMP TABLE drop_created AS

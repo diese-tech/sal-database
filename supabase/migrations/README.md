@@ -98,3 +98,9 @@ fail-closed player identity merge again for the authoritative post-transaction
 eligibility reference. It blocks conflicting same-season eligibility rows and
 otherwise transfers the source row to the canonical player without losing the
 private administrator decision.
+
+`20260823130000_organization_role_mapping_merge_compatibility.sql` keeps both
+organization-wide owner/advisor roles and season-team projection roles attached
+when a superadmin consolidates duplicate organization identities. Existing
+canonical target mappings win; otherwise the source mapping is re-keyed before
+the duplicate parent rows are removed.

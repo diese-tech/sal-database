@@ -101,6 +101,10 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'A mapping does not belong to the selected season.';
   END IF;
 
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended('season-team-role-mappings:' || p_season_id, 0)
+  );
+
   SELECT COALESCE(jsonb_agg(jsonb_build_object(
     'divisionId', mapping.division_id,
     'orgId', mapping.org_id,
@@ -115,6 +119,17 @@ BEGIN
    AND btrim(input.org_id) = mapping.org_id
   WHERE mapping.season_id = p_season_id;
 
+  -- Remove the reviewed team keys before inserting their complete replacement
+  -- set. This keeps role exchanges such as A:r1/B:r2 -> A:r2/B:r1 atomic
+  -- without weakening the season-wide Discord-role uniqueness constraint.
+  DELETE FROM public.season_organization_role_mappings AS mapping
+  USING jsonb_to_recordset(p_mappings) AS input(
+    division_id text, org_id text, discord_role_id text
+  )
+  WHERE mapping.season_id = p_season_id
+    AND mapping.division_id = btrim(input.division_id)
+    AND mapping.org_id = btrim(input.org_id);
+
   INSERT INTO public.season_organization_role_mappings (
     season_id, division_id, org_id, discord_role_id, updated_by_discord_id
   )
@@ -122,11 +137,7 @@ BEGIN
          btrim(input.discord_role_id), p_actor_discord_id
   FROM jsonb_to_recordset(p_mappings) AS input(
     division_id text, org_id text, discord_role_id text
-  )
-  ON CONFLICT (season_id, division_id, org_id) DO UPDATE
-  SET discord_role_id = EXCLUDED.discord_role_id,
-      updated_by_discord_id = EXCLUDED.updated_by_discord_id,
-      updated_at = now();
+  );
 
   SELECT jsonb_agg(jsonb_build_object(
     'divisionId', division_id,
