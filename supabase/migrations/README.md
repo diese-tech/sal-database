@@ -92,3 +92,9 @@ eligibility state; successful execution atomically writes canonical roster and
 eligibility state plus durable transaction-bulletin and Discord-role outbox
 events. Claim consumers must consult `season_player_eligibility` before adding a
 free agent to a roster.
+
+`20260823123000_player_eligibility_merge_compatibility.sql` extends the
+fail-closed player identity merge again for the authoritative post-transaction
+eligibility reference. It blocks conflicting same-season eligibility rows and
+otherwise transfers the source row to the canonical player without losing the
+private administrator decision.

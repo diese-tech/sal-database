@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(22);
+SELECT plan(25);
 
 SELECT has_table(
   'public', 'season_organization_role_mappings',
@@ -52,7 +52,9 @@ VALUES
   ('drop-season', 'drop-org-a', 'solar'),
   ('drop-season', 'drop-org-b', 'solar');
 INSERT INTO public.admin_users (discord_id, role, discord_username, display_name)
-VALUES ('drop-admin', 'admin', 'drop-admin', 'Drop Admin');
+VALUES
+  ('drop-admin', 'admin', 'drop-admin', 'Drop Admin'),
+  ('merge-admin', 'super_admin', 'merge-admin', 'Merge Admin');
 INSERT INTO public.season_transaction_settings (
   season_id, division_id, trades_open, drops_open, max_roster_size, updated_by_discord_id
 ) VALUES ('drop-season', 'solar', false, true, 5, 'drop-admin');
@@ -230,6 +232,30 @@ SELECT ok(
   AND (SELECT status = 'denied' FROM public.pending_actions
        WHERE id = (SELECT result ->> 'pendingActionId' FROM denied_drop)),
   'denial leaves canonical roster state unchanged'
+);
+
+INSERT INTO public.players (
+  id, org_id, discord_username, ign, avatar_initials, avatar_gradient,
+  primary_role, division_id, status, discord_id
+) VALUES (
+  'drop-player-canonical', NULL, 'drop-canonical', 'Drop Canonical',
+  'DC', 'x', 'Flex', 'solar', 'free_agent', NULL
+);
+SELECT ok(
+  (public.preview_player_merge('drop-player-1', 'drop-player-canonical') ->> 'canMerge')::boolean
+    AND public.preview_player_merge('drop-player-1', 'drop-player-canonical')
+      #>> '{counts,seasonPlayerEligibility}' = '1',
+  'player merge preview recognizes authoritative eligibility references'
+);
+SELECT lives_ok(
+  $$SELECT public.merge_player('drop-player-1', 'drop-player-canonical', 'merge-admin')$$,
+  'player merge transfers post-transaction eligibility to the canonical identity'
+);
+SELECT is(
+  (SELECT player_id FROM public.season_player_eligibility
+   WHERE season_id = 'drop-season' AND player_id = 'drop-player-canonical'),
+  'drop-player-canonical',
+  'post-transaction eligibility remains attached after a player merge'
 );
 
 SELECT * FROM finish();
