@@ -3152,6 +3152,17 @@ export type Database = {
         }
         Returns: Json
       }
+      resolve_roster_drop_pending_action: {
+        Args: {
+          p_action_id: string
+          p_actor_discord_id: string
+          p_decision: string
+          p_eligibility_status?: string
+          p_note?: string
+          p_suspended_until?: string
+        }
+        Returns: Json
+      }
       revise_match_report_extraction: {
         Args: {
           p_expected_revision: number
@@ -3171,17 +3182,6 @@ export type Database = {
         Returns: Json
       }
       scouter_game_draft_diagnostics: { Args: { p_game: Json }; Returns: Json }
-      resolve_roster_drop_pending_action: {
-        Args: {
-          p_action_id: string
-          p_actor_discord_id: string
-          p_decision: string
-          p_eligibility_status?: string
-          p_note?: string
-          p_suspended_until?: string
-        }
-        Returns: Json
-      }
       set_current_season: {
         Args: { p_season_id: string }
         Returns: {
