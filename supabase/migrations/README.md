@@ -79,3 +79,28 @@ identity linkage at the database boundary.
 existing fail-closed player identity merge to recognize, conflict-check, count,
 lock, and redirect typed roster-transaction movement references. Transaction
 rows remain intact while duplicate player identities consolidate safely.
+
+`20260823120000_scoped_team_roles_and_roster_drops.sql` corrects the Discord
+roster-role projection boundary by storing a team role for the full
+`(season_id, division_id, org_id)` identity. The legacy organization-owner role
+table remains available for older consumers but is no longer a roster
+projection contract. An audited bulk RPC applies reviewed mapping artifacts.
+The same migration extends the existing roster transaction ledger with drops:
+authorized organization submission creates a revision, consent, and pending admin action without
+changing a roster; an administrator must select the private post-drop
+eligibility state; successful execution atomically writes canonical roster and
+eligibility state plus durable transaction-bulletin and Discord-role outbox
+events. Claim consumers must consult `season_player_eligibility` before adding a
+free agent to a roster.
+
+`20260823123000_player_eligibility_merge_compatibility.sql` extends the
+fail-closed player identity merge again for the authoritative post-transaction
+eligibility reference. It blocks conflicting same-season eligibility rows and
+otherwise transfers the source row to the canonical player without losing the
+private administrator decision.
+
+`20260823130000_organization_role_mapping_merge_compatibility.sql` keeps both
+organization-wide owner/advisor roles and season-team projection roles attached
+when a superadmin consolidates duplicate organization identities. Existing
+canonical target mappings win; otherwise the source mapping is re-keyed before
+the duplicate parent rows are removed.

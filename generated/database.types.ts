@@ -1889,7 +1889,7 @@ export type Database = {
           from_org_id: string
           player_id: string
           revision: number
-          to_org_id: string
+          to_org_id: string | null
           transaction_id: string
         }
         Insert: {
@@ -1897,7 +1897,7 @@ export type Database = {
           from_org_id: string
           player_id: string
           revision: number
-          to_org_id: string
+          to_org_id?: string | null
           transaction_id: string
         }
         Update: {
@@ -1905,7 +1905,7 @@ export type Database = {
           from_org_id?: string
           player_id?: string
           revision?: number
-          to_org_id?: string
+          to_org_id?: string | null
           transaction_id?: string
         }
         Relationships: [
@@ -1944,7 +1944,7 @@ export type Database = {
           created_at: string
           created_by_discord_id: string
           proposer_org_id: string
-          receiver_org_id: string
+          receiver_org_id: string | null
           revision: number
           status: string
           supersedes_revision: number | null
@@ -1954,7 +1954,7 @@ export type Database = {
           created_at?: string
           created_by_discord_id: string
           proposer_org_id: string
-          receiver_org_id: string
+          receiver_org_id?: string | null
           revision: number
           status?: string
           supersedes_revision?: number | null
@@ -1964,7 +1964,7 @@ export type Database = {
           created_at?: string
           created_by_discord_id?: string
           proposer_org_id?: string
-          receiver_org_id?: string
+          receiver_org_id?: string | null
           revision?: number
           status?: string
           supersedes_revision?: number | null
@@ -2012,6 +2012,9 @@ export type Database = {
           created_at: string
           current_revision: number
           division_id: string
+          drop_eligibility_status: string | null
+          drop_private_note: string | null
+          drop_suspended_until: string | null
           execution_claimed_at: string | null
           id: string
           initiated_by_discord_id: string
@@ -2019,7 +2022,7 @@ export type Database = {
           proposal_channel_id: string | null
           proposal_message_id: string | null
           proposer_org_id: string
-          receiver_org_id: string
+          receiver_org_id: string | null
           season_id: string
           source: string
           status: string
@@ -2036,6 +2039,9 @@ export type Database = {
           created_at?: string
           current_revision?: number
           division_id: string
+          drop_eligibility_status?: string | null
+          drop_private_note?: string | null
+          drop_suspended_until?: string | null
           execution_claimed_at?: string | null
           id?: string
           initiated_by_discord_id: string
@@ -2043,7 +2049,7 @@ export type Database = {
           proposal_channel_id?: string | null
           proposal_message_id?: string | null
           proposer_org_id: string
-          receiver_org_id: string
+          receiver_org_id?: string | null
           season_id: string
           source: string
           status?: string
@@ -2060,6 +2066,9 @@ export type Database = {
           created_at?: string
           current_revision?: number
           division_id?: string
+          drop_eligibility_status?: string | null
+          drop_private_note?: string | null
+          drop_suspended_until?: string | null
           execution_claimed_at?: string | null
           id?: string
           initiated_by_discord_id?: string
@@ -2067,7 +2076,7 @@ export type Database = {
           proposal_channel_id?: string | null
           proposal_message_id?: string | null
           proposer_org_id?: string
-          receiver_org_id?: string
+          receiver_org_id?: string | null
           season_id?: string
           source?: string
           status?: string
@@ -2435,6 +2444,44 @@ export type Database = {
           },
         ]
       }
+      season_organization_role_mappings: {
+        Row: {
+          created_at: string
+          discord_role_id: string
+          division_id: string
+          org_id: string
+          season_id: string
+          updated_at: string
+          updated_by_discord_id: string
+        }
+        Insert: {
+          created_at?: string
+          discord_role_id: string
+          division_id: string
+          org_id: string
+          season_id: string
+          updated_at?: string
+          updated_by_discord_id: string
+        }
+        Update: {
+          created_at?: string
+          discord_role_id?: string
+          division_id?: string
+          org_id?: string
+          season_id?: string
+          updated_at?: string
+          updated_by_discord_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "season_organization_role_mappings_team_fkey"
+            columns: ["season_id", "org_id", "division_id"]
+            isOneToOne: false
+            referencedRelation: "season_orgs"
+            referencedColumns: ["season_id", "org_id", "division_id"]
+          },
+        ]
+      }
       season_orgs: {
         Row: {
           created_at: string
@@ -2480,6 +2527,74 @@ export type Database = {
             columns: ["season_id"]
             isOneToOne: false
             referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      season_player_eligibility: {
+        Row: {
+          created_at: string
+          division_id: string
+          player_id: string
+          private_note: string | null
+          season_id: string
+          source_transaction_id: string | null
+          status: string
+          suspended_until: string | null
+          updated_at: string
+          updated_by_discord_id: string
+        }
+        Insert: {
+          created_at?: string
+          division_id: string
+          player_id: string
+          private_note?: string | null
+          season_id: string
+          source_transaction_id?: string | null
+          status: string
+          suspended_until?: string | null
+          updated_at?: string
+          updated_by_discord_id: string
+        }
+        Update: {
+          created_at?: string
+          division_id?: string
+          player_id?: string
+          private_note?: string | null
+          season_id?: string
+          source_transaction_id?: string | null
+          status?: string
+          suspended_until?: string | null
+          updated_at?: string
+          updated_by_discord_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "season_player_eligibility_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "season_player_eligibility_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "season_player_eligibility_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "season_player_eligibility_source_transaction_id_fkey"
+            columns: ["source_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "roster_transactions"
             referencedColumns: ["id"]
           },
         ]
@@ -2550,6 +2665,7 @@ export type Database = {
         Row: {
           created_at: string
           division_id: string
+          drops_open: boolean
           max_roster_size: number
           season_id: string
           trades_open: boolean
@@ -2559,6 +2675,7 @@ export type Database = {
         Insert: {
           created_at?: string
           division_id: string
+          drops_open?: boolean
           max_roster_size: number
           season_id: string
           trades_open?: boolean
@@ -2568,6 +2685,7 @@ export type Database = {
         Update: {
           created_at?: string
           division_id?: string
+          drops_open?: boolean
           max_roster_size?: number
           season_id?: string
           trades_open?: boolean
@@ -2836,6 +2954,17 @@ export type Database = {
         }
         Returns: Json
       }
+      create_roster_drop: {
+        Args: {
+          p_actor_discord_id: string
+          p_division_id: string
+          p_org_id: string
+          p_player_id: string
+          p_season_id: string
+          p_source?: string
+        }
+        Returns: Json
+      }
       create_roster_trade: {
         Args: {
           p_actor_discord_id: string
@@ -3023,6 +3152,17 @@ export type Database = {
         }
         Returns: Json
       }
+      resolve_roster_drop_pending_action: {
+        Args: {
+          p_action_id: string
+          p_actor_discord_id: string
+          p_decision: string
+          p_eligibility_status?: string
+          p_note?: string
+          p_suspended_until?: string
+        }
+        Returns: Json
+      }
       revise_match_report_extraction: {
         Args: {
           p_expected_revision: number
@@ -3059,6 +3199,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_season_organization_role_mappings: {
+        Args: {
+          p_actor_discord_id: string
+          p_mappings: Json
+          p_season_id: string
+        }
+        Returns: Json
       }
       submit_draft_pick: {
         Args: {
