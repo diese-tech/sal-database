@@ -2444,6 +2444,44 @@ export type Database = {
           },
         ]
       }
+      season_organization_role_mappings: {
+        Row: {
+          created_at: string
+          discord_role_id: string
+          division_id: string
+          org_id: string
+          season_id: string
+          updated_at: string
+          updated_by_discord_id: string
+        }
+        Insert: {
+          created_at?: string
+          discord_role_id: string
+          division_id: string
+          org_id: string
+          season_id: string
+          updated_at?: string
+          updated_by_discord_id: string
+        }
+        Update: {
+          created_at?: string
+          discord_role_id?: string
+          division_id?: string
+          org_id?: string
+          season_id?: string
+          updated_at?: string
+          updated_by_discord_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "season_organization_role_mappings_team_fkey"
+            columns: ["season_id", "org_id", "division_id"]
+            isOneToOne: false
+            referencedRelation: "season_orgs"
+            referencedColumns: ["season_id", "org_id", "division_id"]
+          },
+        ]
+      }
       season_orgs: {
         Row: {
           created_at: string
@@ -2490,106 +2528,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "seasons"
             referencedColumns: ["id"]
-          },
-        ]
-      }
-      season_rosters: {
-        Row: {
-          created_at: string
-          division_id: string | null
-          is_captain: boolean
-          org_id: string | null
-          player_id: string
-          roster_status: string
-          season_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          division_id?: string | null
-          is_captain?: boolean
-          org_id?: string | null
-          player_id: string
-          roster_status?: string
-          season_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          division_id?: string | null
-          is_captain?: boolean
-          org_id?: string | null
-          player_id?: string
-          roster_status?: string
-          season_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "season_rosters_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "divisions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "season_rosters_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "players"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "season_rosters_season_id_fkey"
-            columns: ["season_id"]
-            isOneToOne: false
-            referencedRelation: "seasons"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "season_rosters_season_org_division_fkey"
-            columns: ["season_id", "org_id", "division_id"]
-            isOneToOne: false
-            referencedRelation: "season_orgs"
-            referencedColumns: ["season_id", "org_id", "division_id"]
-          },
-        ]
-      }
-      season_organization_role_mappings: {
-        Row: {
-          created_at: string
-          discord_role_id: string
-          division_id: string
-          org_id: string
-          season_id: string
-          updated_at: string
-          updated_by_discord_id: string
-        }
-        Insert: {
-          created_at?: string
-          discord_role_id: string
-          division_id: string
-          org_id: string
-          season_id: string
-          updated_at?: string
-          updated_by_discord_id: string
-        }
-        Update: {
-          created_at?: string
-          discord_role_id?: string
-          division_id?: string
-          org_id?: string
-          season_id?: string
-          updated_at?: string
-          updated_by_discord_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "season_organization_role_mappings_team_fkey"
-            columns: ["season_id", "org_id", "division_id"]
-            isOneToOne: false
-            referencedRelation: "season_orgs"
-            referencedColumns: ["season_id", "org_id", "division_id"]
           },
         ]
       }
@@ -2658,6 +2596,68 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "roster_transactions"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      season_rosters: {
+        Row: {
+          created_at: string
+          division_id: string | null
+          is_captain: boolean
+          org_id: string | null
+          player_id: string
+          roster_status: string
+          season_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          division_id?: string | null
+          is_captain?: boolean
+          org_id?: string | null
+          player_id: string
+          roster_status?: string
+          season_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          division_id?: string | null
+          is_captain?: boolean
+          org_id?: string | null
+          player_id?: string
+          roster_status?: string
+          season_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "season_rosters_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "season_rosters_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "season_rosters_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "season_rosters_season_org_division_fkey"
+            columns: ["season_id", "org_id", "division_id"]
+            isOneToOne: false
+            referencedRelation: "season_orgs"
+            referencedColumns: ["season_id", "org_id", "division_id"]
           },
         ]
       }
@@ -2954,6 +2954,17 @@ export type Database = {
         }
         Returns: Json
       }
+      create_roster_drop: {
+        Args: {
+          p_actor_discord_id: string
+          p_division_id: string
+          p_org_id: string
+          p_player_id: string
+          p_season_id: string
+          p_source?: string
+        }
+        Returns: Json
+      }
       create_roster_trade: {
         Args: {
           p_actor_discord_id: string
@@ -2963,17 +2974,6 @@ export type Database = {
           p_proposer_org_id: string
           p_receiver_org_id: string
           p_requested_player_ids: string[]
-          p_season_id: string
-          p_source?: string
-        }
-        Returns: Json
-      }
-      create_roster_drop: {
-        Args: {
-          p_actor_discord_id: string
-          p_division_id: string
-          p_org_id: string
-          p_player_id: string
           p_season_id: string
           p_source?: string
         }
@@ -3134,17 +3134,6 @@ export type Database = {
         }
         Returns: Json
       }
-      resolve_roster_drop_pending_action: {
-        Args: {
-          p_action_id: string
-          p_actor_discord_id: string
-          p_decision: string
-          p_eligibility_status?: string
-          p_note?: string
-          p_suspended_until?: string
-        }
-        Returns: Json
-      }
       resolve_pending_stat_record: {
         Args: {
           p_actor_discord_id: string
@@ -3182,6 +3171,17 @@ export type Database = {
         Returns: Json
       }
       scouter_game_draft_diagnostics: { Args: { p_game: Json }; Returns: Json }
+      resolve_roster_drop_pending_action: {
+        Args: {
+          p_action_id: string
+          p_actor_discord_id: string
+          p_decision: string
+          p_eligibility_status?: string
+          p_note?: string
+          p_suspended_until?: string
+        }
+        Returns: Json
+      }
       set_current_season: {
         Args: { p_season_id: string }
         Returns: {
