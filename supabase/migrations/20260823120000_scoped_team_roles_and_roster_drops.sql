@@ -52,45 +52,50 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Mappings must be a non-empty JSON array.';
   END IF;
 
-  CREATE TEMP TABLE role_mapping_input (
-    division_id text NOT NULL,
-    org_id text NOT NULL,
-    discord_role_id text NOT NULL
-  ) ON COMMIT DROP;
-
-  INSERT INTO role_mapping_input (division_id, org_id, discord_role_id)
-  SELECT btrim(item.division_id), btrim(item.org_id), btrim(item.discord_role_id)
+  SELECT count(*) INTO v_count
   FROM jsonb_to_recordset(p_mappings) AS item(
     division_id text, org_id text, discord_role_id text
   );
-
-  SELECT count(*) INTO v_count FROM role_mapping_input;
   IF v_count <> jsonb_array_length(p_mappings)
      OR EXISTS (
-       SELECT 1 FROM role_mapping_input
-       WHERE division_id = '' OR org_id = '' OR discord_role_id !~ '^[0-9]{17,20}$'
+       SELECT 1
+       FROM jsonb_to_recordset(p_mappings) AS item(
+         division_id text, org_id text, discord_role_id text
+       )
+       WHERE item.division_id IS NULL OR btrim(item.division_id) = ''
+          OR item.org_id IS NULL OR btrim(item.org_id) = ''
+          OR item.discord_role_id IS NULL
+          OR btrim(item.discord_role_id) !~ '^[0-9]{17,20}$'
      ) THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Each mapping requires valid division, organization, and Discord role IDs.';
   END IF;
   IF v_count <> (
     SELECT count(*) FROM (
-      SELECT DISTINCT division_id, org_id FROM role_mapping_input
+      SELECT DISTINCT btrim(item.division_id), btrim(item.org_id)
+      FROM jsonb_to_recordset(p_mappings) AS item(
+        division_id text, org_id text, discord_role_id text
+      )
     ) AS distinct_teams
   ) THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Mappings contain a duplicate season team.';
   END IF;
   IF v_count <> (
-    SELECT count(DISTINCT discord_role_id) FROM role_mapping_input
+    SELECT count(DISTINCT btrim(item.discord_role_id))
+    FROM jsonb_to_recordset(p_mappings) AS item(
+      division_id text, org_id text, discord_role_id text
+    )
   ) THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'A Discord team role cannot be assigned more than once in a season.';
   END IF;
   IF EXISTS (
     SELECT 1
-    FROM role_mapping_input AS input
+    FROM jsonb_to_recordset(p_mappings) AS input(
+      division_id text, org_id text, discord_role_id text
+    )
     LEFT JOIN public.season_orgs AS team
       ON team.season_id = p_season_id
-     AND team.division_id = input.division_id
-     AND team.org_id = input.org_id
+     AND team.division_id = btrim(input.division_id)
+     AND team.org_id = btrim(input.org_id)
     WHERE team.season_id IS NULL
   ) THEN
     RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'A mapping does not belong to the selected season.';
@@ -103,16 +108,21 @@ BEGIN
   ) ORDER BY mapping.division_id, mapping.org_id), '[]'::jsonb)
   INTO v_old
   FROM public.season_organization_role_mappings AS mapping
-  JOIN role_mapping_input AS input
-    ON input.division_id = mapping.division_id
-   AND input.org_id = mapping.org_id
+  JOIN jsonb_to_recordset(p_mappings) AS input(
+    division_id text, org_id text, discord_role_id text
+  )
+    ON btrim(input.division_id) = mapping.division_id
+   AND btrim(input.org_id) = mapping.org_id
   WHERE mapping.season_id = p_season_id;
 
   INSERT INTO public.season_organization_role_mappings (
     season_id, division_id, org_id, discord_role_id, updated_by_discord_id
   )
-  SELECT p_season_id, division_id, org_id, discord_role_id, p_actor_discord_id
-  FROM role_mapping_input
+  SELECT p_season_id, btrim(input.division_id), btrim(input.org_id),
+         btrim(input.discord_role_id), p_actor_discord_id
+  FROM jsonb_to_recordset(p_mappings) AS input(
+    division_id text, org_id text, discord_role_id text
+  )
   ON CONFLICT (season_id, division_id, org_id) DO UPDATE
   SET discord_role_id = EXCLUDED.discord_role_id,
       updated_by_discord_id = EXCLUDED.updated_by_discord_id,
@@ -124,7 +134,14 @@ BEGIN
     'discordRoleId', discord_role_id
   ) ORDER BY division_id, org_id)
   INTO v_new
-  FROM role_mapping_input;
+  FROM (
+    SELECT btrim(item.division_id) AS division_id,
+           btrim(item.org_id) AS org_id,
+           btrim(item.discord_role_id) AS discord_role_id
+    FROM jsonb_to_recordset(p_mappings) AS item(
+      division_id text, org_id text, discord_role_id text
+    )
+  ) AS normalized_input;
 
   INSERT INTO public.audit_logs (
     action_type, entity_type, entity_id, actor_discord_id,
