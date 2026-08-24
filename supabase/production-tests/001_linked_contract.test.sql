@@ -5,7 +5,7 @@ SET LOCAL search_path TO extensions, public, storage, pg_catalog;
 SELECT plan(74);
 
 SELECT ok(
-  (SELECT count(*) = 49
+  (SELECT count(*) = 51
    FROM pg_class c
    JOIN pg_namespace n ON n.oid = c.relnamespace
    WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')),
@@ -595,14 +595,19 @@ SELECT ok(
   AND to_regclass('public.season_transaction_settings') IS NOT NULL
   AND to_regclass('public.captain_role_mappings') IS NOT NULL
   AND to_regclass('public.organization_role_mappings') IS NOT NULL
+  AND to_regclass('public.season_organization_role_mappings') IS NOT NULL
+  AND to_regclass('public.season_player_eligibility') IS NOT NULL
   AND to_regprocedure('public.create_roster_trade(text,text,text,text,text,text[],text[],text,text)') IS NOT NULL
   AND to_regprocedure('public.counter_roster_trade(uuid,integer,text,text[],text[])') IS NOT NULL
   AND to_regprocedure('public.accept_roster_trade(uuid,integer,text)') IS NOT NULL
   AND to_regprocedure('public.decline_roster_trade(uuid,integer,text)') IS NOT NULL
   AND to_regprocedure('public.cancel_roster_trade(uuid,integer,text,text)') IS NOT NULL
+  AND to_regprocedure('public.set_season_organization_role_mappings(text,text,jsonb)') IS NOT NULL
+  AND to_regprocedure('public.create_roster_drop(text,text,text,text,text,text)') IS NOT NULL
+  AND to_regprocedure('public.resolve_roster_drop_pending_action(text,text,text,text,timestamp with time zone,text)') IS NOT NULL
   AND to_regprocedure('public.mark_operation_outbox_needs_reconciliation(uuid,text,text)') IS NOT NULL
   AND to_regprocedure('public.reconcile_operation_outbox(uuid,text,text,boolean)') IS NOT NULL,
-  'the canonical roster-trade, role-mapping, and ambiguous-delivery contracts are deployed'
+  'the canonical roster-transaction, scoped role-mapping, and ambiguous-delivery contracts are deployed'
 );
 
 SELECT * FROM finish();
