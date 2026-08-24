@@ -2,7 +2,7 @@
   "attestationVersion": 3,
   "contractVersion": "db-v1.20.0",
   "migrationHead": "20260823130000",
-  "contractCommit": "f001082410b339966a13a0bb6b05f7c805b09a11",
+  "contractCommit": "b5c497d847628fc52d1530791fb25f9e67c72455",
   "contractSha256": "sha256:d244ee25ddcb3bc79f8b5c81fa857055737b5837c4070e20c3305224eb5d54e5",
   "deploymentInputsSha256": "sha256:eba36cdeba4a27d9ab9b0467fa5f02cfd3a1a1315b12b298beb86fa3a6998df6",
   "productionPostgresMajor": 17,
