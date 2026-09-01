@@ -39,6 +39,22 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: Verify reviewed seeds did not lose rows
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          mkdir -p "$RUNNER_TEMP/base-seeds"
+          for seed in smite2-gods smite2-items; do
+            git show "$BASE_SHA:supabase/seeds/$seed.sql" \
+              > "$RUNNER_TEMP/base-seeds/$seed.sql" 2>/dev/null || true
+            node scripts/verify-seed-growth.mjs \
+              "$RUNNER_TEMP/base-seeds/$seed.sql" \
+              "supabase/seeds/$seed.sql" \
+              "$seed"
+          done
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
       - run: npm audit --audit-level=high
 
   secret-scan:

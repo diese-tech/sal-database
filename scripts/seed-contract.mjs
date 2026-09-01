@@ -18,3 +18,13 @@ export const findDuplicateSeedNames = (source) => {
   }
   return [...duplicates].sort();
 };
+
+// The contract.json floor is an absolute backstop, but it does not move on its
+// own: once growth is accepted, a later change could drop back to the floor and
+// still pass. This compares a seed against the same seed on the base branch, so
+// "never shrinks" holds continuously without a manual bump on every addition.
+export const findSeedRowRegression = (previousSource, nextSource) => {
+  const previousRows = countSqlSeedRows(previousSource);
+  const nextRows = countSqlSeedRows(nextSource);
+  return nextRows < previousRows ? { previousRows, nextRows } : null;
+};

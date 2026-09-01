@@ -12,6 +12,7 @@ import { assertProductionTestSqlIsReadOnly } from '../scripts/production-test-co
 import {
   countSqlSeedRows,
   findDuplicateSeedNames,
+  findSeedRowRegression,
   usesIdentityPreservingNameUpsert,
 } from '../scripts/seed-contract.mjs';
 
@@ -115,6 +116,22 @@ test('counts reviewed SQL seed tuples without relying on live table contents', (
     countSqlSeedRows("insert into public.gods values\n  ('a', 'A'),\n  ('b', 'B');\n"),
     2,
   );
+});
+
+test('reports a seed that lost rows against its base branch', () => {
+  // The contract floor does not move on its own, so once growth is accepted a
+  // later change could drop back to it. This is what keeps "never shrinks"
+  // true continuously rather than only against the declared floor.
+  const base = "insert into public.gods values\n  ('a', 'A'),\n  ('b', 'B');\n";
+  const shrunk = "insert into public.gods values\n  ('a', 'A');\n";
+  assert.deepEqual(findSeedRowRegression(base, shrunk), { previousRows: 2, nextRows: 1 });
+});
+
+test('accepts a seed that grew or held steady against its base branch', () => {
+  const base = "insert into public.gods values\n  ('a', 'A'),\n  ('b', 'B');\n";
+  const grown = "insert into public.gods values\n  ('a', 'A'),\n  ('b', 'B'),\n  ('c', 'C');\n";
+  assert.equal(findSeedRowRegression(base, grown), null);
+  assert.equal(findSeedRowRegression(base, base), null);
 });
 
 test('reports seed names repeated under different ids', () => {
