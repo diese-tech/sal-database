@@ -1,5 +1,5 @@
 {
-  "version": "db-v1.21.0",
+  "version": "db-v1.21.1",
   "migrationHead": "20260901120000",
   "supabaseCliVersion": "2.109.1",
   "typesSha256": "sha256:4f4564132dcca1d763ae72e08319bfe90b675cbdb940dfdcc730329b2fa6543d",
