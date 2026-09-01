@@ -467,7 +467,7 @@ SELECT ok(
           (functions.proname = 'resolve_registration_review'
             AND functions.proconfig @> ARRAY['search_path=pg_catalog, public, private'])
           OR (functions.proname = 'resolve_match_report_review'
-            AND functions.proconfig @> ARRAY['search_path=pg_catalog, public'])
+            AND functions.proconfig @> ARRAY['search_path=pg_catalog, public, private'])
         )
       )
   )
@@ -501,7 +501,13 @@ SELECT ok(
   AND
   (SELECT count(*) = 1 FROM public.audit_logs
     WHERE entity_type = 'match_report'
-      AND entity_id = '00000000-0000-0000-0000-00000000d201')
+      AND entity_id = '00000000-0000-0000-0000-00000000d201'
+      AND action_type = 'match_report_resolved')
+  AND
+  (SELECT count(*) = 1 FROM public.audit_logs
+    WHERE entity_type = 'match_report'
+      AND entity_id = '00000000-0000-0000-0000-00000000d201'
+      AND action_type = 'match_report_stats_published')
   AND
   (SELECT count(*) = 1 FROM public.operation_outbox
     WHERE aggregate_type = 'match_report'
@@ -712,20 +718,13 @@ SELECT ok(
   'a rejected tied series leaves the match, report, and stats unchanged'
 );
 
-CREATE TEMP TABLE db02_unlinked_match_result AS
-SELECT public.resolve_match_report_review(
-  '00000000-0000-0000-0000-00000000d209',
-  'db02-admin',
-  (SELECT unlinked FROM db02_invalid_match_payloads)
-) AS result;
-SELECT ok(
-  (SELECT result ->> 'code' = 'applied' FROM db02_unlinked_match_result)
-  AND
-  (SELECT count(*) = 1 FROM public.player_match_stats
-    WHERE match_report_id = '00000000-0000-0000-0000-00000000d209'
-      AND player_id IS NULL
-      AND player_ign = 'Unlinked Scout'),
-  'a validated unlinked IGN is retained as a stat row without claiming a player identity'
+SELECT throws_ok(
+  $$SELECT public.resolve_match_report_review(
+    '00000000-0000-0000-0000-00000000d209', 'db02-admin',
+    (SELECT unlinked FROM db02_invalid_match_payloads)
+  )$$,
+  '23514', 'Every official player stat must be linked before approval.',
+  'an unlinked IGN cannot cross the official publication boundary'
 );
 
 CREATE FUNCTION pg_temp.db02_reject_stats_insert() RETURNS trigger

@@ -1,6 +1,7 @@
 {
-  "version": "db-v1.17.0",
-  "migrationHead": "20260809220000",
+  "version": "db-v1.21.1",
+  "migrationHead": "20260901120000",
   "supabaseCliVersion": "2.109.1",
-  "typesSha256": "sha256:86fc05751b8a688459ff4b49c98c4e9b50a0b406a11594587dc66221c5cec4ed"
+  "typesSha256": "sha256:4f4564132dcca1d763ae72e08319bfe90b675cbdb940dfdcc730329b2fa6543d",
+  "smiteGodSeedMinimumRows": 88
 }

@@ -11,6 +11,8 @@ import { normalizeMigrationPlan } from '../scripts/normalize-migration-plan.mjs'
 import { assertProductionTestSqlIsReadOnly } from '../scripts/production-test-contract.mjs';
 import {
   countSqlSeedRows,
+  findDuplicateSeedNames,
+  findSeedRowRegression,
   usesIdentityPreservingNameUpsert,
 } from '../scripts/seed-contract.mjs';
 
@@ -113,6 +115,57 @@ test('counts reviewed SQL seed tuples without relying on live table contents', (
   assert.equal(
     countSqlSeedRows("insert into public.gods values\n  ('a', 'A'),\n  ('b', 'B');\n"),
     2,
+  );
+});
+
+test('reports a seed that lost rows against its base branch', () => {
+  // The contract floor does not move on its own, so once growth is accepted a
+  // later change could drop back to it. This is what keeps "never shrinks"
+  // true continuously rather than only against the declared floor.
+  const base = "insert into public.gods values\n  ('a', 'A'),\n  ('b', 'B');\n";
+  const shrunk = "insert into public.gods values\n  ('a', 'A');\n";
+  assert.deepEqual(findSeedRowRegression(base, shrunk), { previousRows: 2, nextRows: 1 });
+});
+
+test('accepts a seed that grew or held steady against its base branch', () => {
+  const base = "insert into public.gods values\n  ('a', 'A'),\n  ('b', 'B');\n";
+  const grown = "insert into public.gods values\n  ('a', 'A'),\n  ('b', 'B'),\n  ('c', 'C');\n";
+  assert.equal(findSeedRowRegression(base, grown), null);
+  assert.equal(findSeedRowRegression(base, base), null);
+});
+
+test('reports seed names repeated under different ids', () => {
+  // The old exact-row assertion caught a duplicate only through the count. A
+  // growth floor does not, so the duplicate check stands on its own.
+  assert.deepEqual(
+    findDuplicateSeedNames(
+      "insert into public.gods values\n  ('zeus', 'Zeus'),\n  ('zeus-2', 'Zeus'),\n  ('hel', 'Hel');\n",
+    ),
+    ['zeus'],
+  );
+});
+
+test('accepts a growing seed with distinct names', () => {
+  assert.deepEqual(
+    findDuplicateSeedNames(
+      "insert into public.gods values\n  ('a', 'A'),\n  ('b', 'B'),\n  ('c', 'C');\n",
+    ),
+    [],
+  );
+});
+
+test('compares seed names case-insensitively and unescapes doubled quotes', () => {
+  assert.deepEqual(
+    findDuplicateSeedNames(
+      "insert into public.gods values\n  ('ah', 'Ah Muzen Cab'),\n  ('ah2', 'ah muzen cab');\n",
+    ),
+    ['ah muzen cab'],
+  );
+  assert.deepEqual(
+    findDuplicateSeedNames(
+      "insert into public.gods values\n  ('x', 'Chang''e'),\n  ('y', 'Chang''e');\n",
+    ),
+    ["chang'e"],
   );
 });
 

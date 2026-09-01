@@ -28,7 +28,8 @@ SELECT ok(
       AND tablename IN (
         'admin_users', 'admin_audit_log', 'audit_logs', 'pending_actions',
         'pending_stat_records', 'bug_reports', 'bug_report_messages',
-        'bug_report_rate_limits', 'bug_report_abuse_decisions'
+        'bug_report_rate_limits', 'bug_report_abuse_decisions',
+        'match_report_host_tokens'
       )
       AND roles && ARRAY['anon', 'authenticated', 'public']::name[]
   ),

@@ -2,10 +2,10 @@ BEGIN;
 
 SET LOCAL search_path TO extensions, public, storage, pg_catalog;
 
-SELECT plan(70);
+SELECT plan(74);
 
 SELECT ok(
-  (SELECT count(*) = 41
+  (SELECT count(*) = 51
    FROM pg_class c
    JOIN pg_namespace n ON n.oid = c.relnamespace
    WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')),
@@ -21,6 +21,34 @@ SELECT has_table(
 );
 SELECT has_table(
   'public', 'bug_report_abuse_decisions', 'the durable bug report decision table is deployed'
+);
+
+SELECT has_table(
+  'public', 'match_report_host_tokens', 'the private match-report host token table is deployed'
+);
+SELECT ok(
+  (
+    SELECT array_agg(columns.column_name::text ORDER BY columns.column_name)
+      @> ARRAY[
+        'host_discord_id', 'host_submitted_at', 'pending_action_id', 'revision'
+      ]::text[]
+    FROM information_schema.columns AS columns
+    WHERE columns.table_schema = 'public'
+      AND columns.table_name = 'match_reports'
+  ),
+  'match reports expose recoverable host-review state and action linkage'
+);
+SELECT ok(
+  to_regprocedure('public.ensure_match_report_for_pending_action(text,text)') IS NOT NULL
+  AND to_regprocedure('public.create_match_result_action_with_report(text,text,jsonb)') IS NOT NULL
+  AND to_regprocedure(
+    'public.issue_match_report_host_token(uuid,text,text,timestamp with time zone)'
+  ) IS NOT NULL
+  AND to_regprocedure('public.consume_match_report_host_token(text)') IS NOT NULL
+  AND to_regprocedure('public.match_report_extraction_diagnostics(uuid,jsonb)') IS NOT NULL
+  AND to_regprocedure('public.revise_match_report_extraction(uuid,text,integer,jsonb)') IS NOT NULL
+  AND to_regprocedure('public.submit_match_report_host_review(uuid,text,integer)') IS NOT NULL,
+  'the released match-report host-review RPC boundary is complete'
 );
 
 SELECT has_table('public', 'scouter_matches', 'the scouter match table is deployed');
@@ -321,7 +349,7 @@ SELECT has_function(
 SELECT ok(
   (
     SELECT array_agg(columns.column_name::text ORDER BY columns.column_name)
-      @> ARRAY['division_id', 'org_id', 'season_id']::text[]
+      @> ARRAY['division_id', 'match_report_id', 'org_id', 'season_id']::text[]
     FROM information_schema.columns AS columns
     WHERE columns.table_schema = 'public'
       AND columns.table_name = 'player_stats'
@@ -338,6 +366,7 @@ SELECT ok(
     FROM public.player_stats AS stats
     WHERE num_nulls(stats.season_id, stats.org_id, stats.division_id)
       NOT IN (0, 3)
+      OR (stats.pending_stat_record_id IS NOT NULL AND stats.match_report_id IS NOT NULL)
   ),
   'production contains no partially attributed official player stat rows'
 );
@@ -556,6 +585,29 @@ SELECT ok(
       AND pg_get_constraintdef(oid) LIKE '%terra%'
   ),
   'match reports retain historical Gaia values and accept Terra'
+);
+
+SELECT ok(
+  to_regclass('public.roster_transactions') IS NOT NULL
+  AND to_regclass('public.roster_transaction_revisions') IS NOT NULL
+  AND to_regclass('public.roster_transaction_movements') IS NOT NULL
+  AND to_regclass('public.roster_transaction_consents') IS NOT NULL
+  AND to_regclass('public.season_transaction_settings') IS NOT NULL
+  AND to_regclass('public.captain_role_mappings') IS NOT NULL
+  AND to_regclass('public.organization_role_mappings') IS NOT NULL
+  AND to_regclass('public.season_organization_role_mappings') IS NOT NULL
+  AND to_regclass('public.season_player_eligibility') IS NOT NULL
+  AND to_regprocedure('public.create_roster_trade(text,text,text,text,text,text[],text[],text,text)') IS NOT NULL
+  AND to_regprocedure('public.counter_roster_trade(uuid,integer,text,text[],text[])') IS NOT NULL
+  AND to_regprocedure('public.accept_roster_trade(uuid,integer,text)') IS NOT NULL
+  AND to_regprocedure('public.decline_roster_trade(uuid,integer,text)') IS NOT NULL
+  AND to_regprocedure('public.cancel_roster_trade(uuid,integer,text,text)') IS NOT NULL
+  AND to_regprocedure('public.set_season_organization_role_mappings(text,text,jsonb)') IS NOT NULL
+  AND to_regprocedure('public.create_roster_drop(text,text,text,text,text,text)') IS NOT NULL
+  AND to_regprocedure('public.resolve_roster_drop_pending_action(text,text,text,text,timestamp with time zone,text)') IS NOT NULL
+  AND to_regprocedure('public.mark_operation_outbox_needs_reconciliation(uuid,text,text)') IS NOT NULL
+  AND to_regprocedure('public.reconcile_operation_outbox(uuid,text,text,boolean)') IS NOT NULL,
+  'the canonical roster-transaction, scoped role-mapping, and ambiguous-delivery contracts are deployed'
 );
 
 SELECT * FROM finish();
