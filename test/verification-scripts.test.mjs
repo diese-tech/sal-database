@@ -11,6 +11,7 @@ import { normalizeMigrationPlan } from '../scripts/normalize-migration-plan.mjs'
 import { assertProductionTestSqlIsReadOnly } from '../scripts/production-test-contract.mjs';
 import {
   countSqlSeedRows,
+  findDuplicateSeedNames,
   usesIdentityPreservingNameUpsert,
 } from '../scripts/seed-contract.mjs';
 
@@ -113,6 +114,41 @@ test('counts reviewed SQL seed tuples without relying on live table contents', (
   assert.equal(
     countSqlSeedRows("insert into public.gods values\n  ('a', 'A'),\n  ('b', 'B');\n"),
     2,
+  );
+});
+
+test('reports seed names repeated under different ids', () => {
+  // The old exact-row assertion caught a duplicate only through the count. A
+  // growth floor does not, so the duplicate check stands on its own.
+  assert.deepEqual(
+    findDuplicateSeedNames(
+      "insert into public.gods values\n  ('zeus', 'Zeus'),\n  ('zeus-2', 'Zeus'),\n  ('hel', 'Hel');\n",
+    ),
+    ['zeus'],
+  );
+});
+
+test('accepts a growing seed with distinct names', () => {
+  assert.deepEqual(
+    findDuplicateSeedNames(
+      "insert into public.gods values\n  ('a', 'A'),\n  ('b', 'B'),\n  ('c', 'C');\n",
+    ),
+    [],
+  );
+});
+
+test('compares seed names case-insensitively and unescapes doubled quotes', () => {
+  assert.deepEqual(
+    findDuplicateSeedNames(
+      "insert into public.gods values\n  ('ah', 'Ah Muzen Cab'),\n  ('ah2', 'ah muzen cab');\n",
+    ),
+    ['ah muzen cab'],
+  );
+  assert.deepEqual(
+    findDuplicateSeedNames(
+      "insert into public.gods values\n  ('x', 'Chang''e'),\n  ('y', 'Chang''e');\n",
+    ),
+    ["chang'e"],
   );
 });
 

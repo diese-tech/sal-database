@@ -7,9 +7,18 @@ The database release stores this repository-owned `contract.json`:
   "version": "db-v1.0.0",
   "migrationHead": "<14-digit migration version>",
   "supabaseCliVersion": "2.109.1",
-  "typesSha256": "sha256:<generated-types hash>"
+  "typesSha256": "sha256:<generated-types hash>",
+  "smiteGodSeedMinimumRows": 88
 }
 ```
+
+`smiteGodSeedMinimumRows` is the floor the reviewed SMITE god seed must meet.
+The catalog grows as SMITE ships gods, and `diese-tech/smite-content-sync`
+proposes those additions as reviewed pull requests, so the contract asserts the
+seed never *shrinks* rather than pinning an exact count that every real addition
+would break. A seed that loses rows, or repeats a name under a second id, still
+fails closed. Lowering the floor is a deliberate edit here, in the manifest
+where the release is declared.
 
 Each consumer commits a separate `db-contract.lock.json` with this shape:
 

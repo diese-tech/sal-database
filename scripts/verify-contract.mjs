@@ -2,7 +2,11 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { readDatabaseMajorVersion } from './supabase-config.mjs';
-import { countSqlSeedRows, usesIdentityPreservingNameUpsert } from './seed-contract.mjs';
+import {
+  countSqlSeedRows,
+  findDuplicateSeedNames,
+  usesIdentityPreservingNameUpsert,
+} from './seed-contract.mjs';
 
 const contract = JSON.parse(readFileSync(new URL('../contract.json', import.meta.url), 'utf8'));
 const types = readFileSync(new URL('../generated/database.types.ts', import.meta.url));
@@ -73,8 +77,24 @@ if (missingDatabaseTests.length !== 0) {
 if (contract.typesSha256 !== hash) {
   throw new Error(`Generated type hash mismatch: expected ${contract.typesSha256}, received ${hash}.`);
 }
-if (countSqlSeedRows(godSeed) !== 88) {
-  throw new Error('The reviewed local SMITE god seed must contain exactly 88 rows.');
+// The god catalog grows as SMITE ships gods, and diese-tech/smite-content-sync
+// proposes those additions as reviewed PRs. An exact row count froze the
+// catalog: every real addition failed this check until someone edited this
+// script. What the guard is actually for is a seed that silently loses or
+// duplicates entries, so it asserts a declared floor instead. Lowering the
+// floor is a deliberate edit to contract.json, where the release is declared.
+const godSeedRows = countSqlSeedRows(godSeed);
+if (!Number.isInteger(contract.smiteGodSeedMinimumRows) || contract.smiteGodSeedMinimumRows < 1) {
+  throw new Error('contract.smiteGodSeedMinimumRows must be a positive integer.');
+}
+if (godSeedRows < contract.smiteGodSeedMinimumRows) {
+  throw new Error(
+    `The reviewed local SMITE god seed must contain at least ${contract.smiteGodSeedMinimumRows} rows, received ${godSeedRows}.`,
+  );
+}
+const duplicateGodNames = findDuplicateSeedNames(godSeed);
+if (duplicateGodNames.length !== 0) {
+  throw new Error(`The SMITE god seed repeats a name: ${duplicateGodNames.join(', ')}.`);
 }
 if (!usesIdentityPreservingNameUpsert(godSeed)) {
   throw new Error('The SMITE god seed must reconcile by unique name without replacing historical IDs.');
