@@ -66,15 +66,21 @@ SELECT ok(
   'items reject malformed identifiers, names, URLs, and metadata'
 );
 
+-- The catalog grows and its provenance is restamped as diese-tech/smite-content-sync
+-- discovers items, so an exact row count and a frozen source_updated_at both
+-- fail on every reviewed sync. (The count here had already drifted from the
+-- description, which still said 260.) What matters is that the seed is whole,
+-- active, source-attributed, and carries provenance for every row; CI's
+-- verify-seed-growth step is what stops the catalog shrinking.
 SELECT ok(
   (
-    SELECT count(*) = 265
-      AND count(*) FILTER (WHERE active) = 265
-      AND count(*) FILTER (WHERE source_url ~ '^https://www[.]smitefire[.]com/smite/item/') = 265
-      AND count(*) FILTER (WHERE source_updated_at = '2026-07-29T15:19:05.553Z'::timestamptz) = 265
+    SELECT count(*) >= 265
+      AND count(*) FILTER (WHERE active) = count(*)
+      AND count(*) FILTER (WHERE source_url ~ '^https://www[.]smitefire[.]com/smite/item/') = count(*)
+      AND count(*) FILTER (WHERE source_updated_at IS NOT NULL) = count(*)
     FROM public.items
   ),
-  'the deterministic seed contains the 260-item active catalog'
+  'the deterministic seed contains the whole active, source-attributed item catalog'
 );
 
 SELECT * FROM finish();
