@@ -104,3 +104,18 @@ organization-wide owner/advisor roles and season-team projection roles attached
 when a superadmin consolidates duplicate organization identities. Existing
 canonical target mappings win; otherwise the source mapping is re-keyed before
 the duplicate parent rows are removed.
+
+`20260901120000_match_report_result_corrections.sql` adds the post-publication
+repair path for completed match reports. `resolve_match_report_review` stays
+deliberately terminal -- a report already `done` returns `already_processed`
+with `applied = false` and writes nothing, so a retried or duplicated approval
+can never silently overwrite a published league result -- and correcting a
+published result is therefore its own explicit admin-only RPC, mirroring the
+scouter correction path added in `20260805031500`. One correction names the
+revision it expects, carries a reason, replaces the complete stat set, updates
+the still-completed match, republishes official stats, and enqueues its own
+standings recalculation. Every change writes an immutable receipt plus full
+before-and-after audits; an exact retry returns the recorded receipt instead of
+applying a second mutation. The reviewed-payload rules are factored into
+`private.validate_match_report_games` so a correction cannot accept anything
+approval would reject.

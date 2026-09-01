@@ -41,6 +41,11 @@ The database contract includes these pgTAP suites:
   linkage, one-time host capabilities, roster diagnostics, host authorization,
   optimistic review submission, canonical stat publication, aggregate refresh,
   and terminal idempotency.
+- `030_match_report_result_corrections.test.sql` for audited post-publication
+  match-report corrections: the approval path staying terminal, revision-checked
+  replacement, receipt and dual audit evidence, standings re-enqueue, retry
+  safety, authorization and lifecycle boundaries, and payload validation that
+  matches the approval path.
 
 A `contract.json` is rejected until all required suites exist. CI runs
 them against a clean local reset, and the protected deployment runs them
