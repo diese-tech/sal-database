@@ -122,8 +122,11 @@ RETURNS jsonb LANGUAGE sql STABLE AS $fn$
           'damageDealt', 1000, 'damageMitigated', 500,
           'godPlayed', 'Ymir', 'role', 'Solo'
         ))
-        FROM public.players p
-        WHERE p.org_id IN ('mr-fix-home', 'mr-fix-away')
+        FROM (
+          SELECT * FROM public.players
+          WHERE org_id IN ('mr-fix-home', 'mr-fix-away')
+          ORDER BY id
+        ) p
       )
     ) AS game
     FROM unnest(ARRAY[1, 2, 3]) AS gn

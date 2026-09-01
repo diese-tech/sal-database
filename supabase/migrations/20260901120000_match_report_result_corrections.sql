@@ -379,6 +379,10 @@ BEGIN
   -- outcome instead of correcting a second time. The key is bound to the whole
   -- request, so a client that accidentally reuses a key for a different
   -- correction is told rather than having its change silently discarded.
+  --
+  -- The games comparison is exact, including array order: a retry is a resend
+  -- of the same request, not an equivalent one. A caller that rebuilds the
+  -- payload in a different order must use a new correction key.
   SELECT * INTO v_existing
   FROM public.match_report_corrections
   WHERE correction_key = v_correction_key;
