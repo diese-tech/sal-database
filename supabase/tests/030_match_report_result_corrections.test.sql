@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(23);
+SELECT plan(26);
 
 -- ── Contract surface ────────────────────────────────────────────────────────
 
@@ -251,11 +251,12 @@ SELECT ok(
 
 -- ── Retry safety and optimistic concurrency ─────────────────────────────────
 
+-- Byte-for-byte the first correction, as an uncertain client would resend it.
 CREATE TEMP TABLE mr_fix_retry AS
 SELECT public.correct_match_report_result(
   'aaaaaaaa-0000-4000-8000-000000000001', 'mr-fix-admin', 1,
   'mr-fix-correction-1', 'Scoreboard kills were misread.',
-  pg_temp.mr_fix_games(ARRAY[1], 42)
+  pg_temp.mr_fix_games(ARRAY[1, 2, 3], 7)
 ) AS result;
 
 SELECT ok(
@@ -263,12 +264,10 @@ SELECT ok(
    FROM mr_fix_retry)
   AND (SELECT count(*) = 1 FROM public.match_report_corrections
        WHERE correction_key = 'mr-fix-correction-1')
+  -- A second correction would have advanced the revision to 3.
   AND (SELECT revision = 2 FROM public.match_reports
        WHERE id = 'aaaaaaaa-0000-4000-8000-000000000001')
-  AND NOT EXISTS (
-    SELECT 1 FROM public.player_match_stats
-    WHERE match_report_id = 'aaaaaaaa-0000-4000-8000-000000000001' AND kills = 42
-  ),
+  AND (SELECT result ->> 'revision' = '2' FROM mr_fix_retry),
   'an exact correction retry returns the recorded receipt without mutating again'
 );
 
@@ -372,6 +371,51 @@ SELECT throws_ok(
   'Reviewed payload contains a duplicate game number.',
   'a correction cannot repeat a game number'
 );
+
+-- A reused key must be bound to the whole request, not just the report, or a
+-- client that accidentally retains its previous key has its next correction
+-- silently discarded as a retry.
+SELECT throws_ok(
+  $$SELECT public.correct_match_report_result(
+      'aaaaaaaa-0000-4000-8000-000000000001', 'mr-fix-admin', 2,
+      'mr-fix-correction-1', 'A different reason entirely.',
+      pg_temp.mr_fix_games(ARRAY[1, 2, 3], 7))$$,
+  '23505',
+  'Correction key already recorded for a different correction.',
+  'a reused correction key with a different request is rejected, not replayed'
+);
+
+SELECT throws_ok(
+  $$SELECT public.correct_match_report_result(
+      'aaaaaaaa-0000-4000-8000-000000000001', 'mr-fix-admin', 2,
+      'mr-fix-correction-1', 'Scoreboard kills were misread.',
+      pg_temp.mr_fix_games(ARRAY[1, 2], 7))$$,
+  '23505',
+  'Correction key already recorded for a different correction.',
+  'a reused correction key with a different payload is rejected, not replayed'
+);
+
+-- An organization can hold a season roster in more than one division; a player
+-- rostered elsewhere must not earn canonical stats in this match's division.
+INSERT INTO public.season_orgs (season_id, org_id, division_id)
+VALUES ('mr-fix-season', 'mr-fix-home', 'solar');
+UPDATE public.season_rosters
+SET division_id = 'solar'
+WHERE season_id = 'mr-fix-season' AND player_id = 'mr-fix-home-1';
+
+SELECT throws_ok(
+  $$SELECT public.correct_match_report_result(
+      'aaaaaaaa-0000-4000-8000-000000000001', 'mr-fix-admin', 2,
+      'mr-fix-cross-division', 'Cross-division roster member.',
+      pg_temp.mr_fix_games(ARRAY[1, 2], 6))$$,
+  '23514',
+  'Supplied player is not rostered in the match division.',
+  'a correction cannot credit a player rostered in another division'
+);
+
+UPDATE public.season_rosters
+SET division_id = 'terra'
+WHERE season_id = 'mr-fix-season' AND player_id = 'mr-fix-home-1';
 
 SELECT ok(
   (SELECT revision = 2 AND home_score = 3 AND away_score = 0

@@ -52,11 +52,19 @@ COMMENT ON TABLE public.match_report_corrections IS
 
 -- Shared payload validation.
 --
--- This is the same rule set the approval path enforces before publishing stats.
--- It is factored out here so the correction path cannot accept a payload that
--- approval would reject; `030_match_report_result_corrections.test.sql` asserts
--- both entry points reject an identical battery of invalid payloads with the
--- same SQLSTATE and message, which is what keeps the two in step.
+-- These are the rules the approval path enforces before publishing stats, so a
+-- correction cannot accept a payload approval would reject;
+-- `030_match_report_result_corrections.test.sql` asserts both entry points
+-- reject an identical battery of invalid payloads with the same SQLSTATE and
+-- message, which is what keeps the two in step.
+--
+-- One rule is deliberately stronger here: the roster lookup is scoped to the
+-- match division. An organization can hold a season roster in more than one
+-- division, and the approval path checks only season and organization, so it
+-- can still stamp a stat row with a division the player is not rostered in.
+-- Tightening approval means replacing a function that publishes canonical
+-- league stats, which belongs in its own reviewed change; a correction is the
+-- repair path, so it takes the stricter rule now.
 CREATE OR REPLACE FUNCTION private.validate_match_report_games(
   p_match_id text,
   p_games jsonb
@@ -80,6 +88,7 @@ DECLARE
   v_known_player_ign text;
   v_known_player_org_id text;
   v_known_roster_status text;
+  v_known_division_id text;
   v_game_count integer;
   v_home_count integer;
   v_away_count integer;
@@ -250,8 +259,9 @@ BEGIN
         END IF;
         v_seen_player_ids := array_append(v_seen_player_ids, v_player_id);
 
-        SELECT players.ign, rosters.org_id, rosters.roster_status
-        INTO v_known_player_ign, v_known_player_org_id, v_known_roster_status
+        SELECT players.ign, rosters.org_id, rosters.roster_status, rosters.division_id
+        INTO v_known_player_ign, v_known_player_org_id, v_known_roster_status,
+             v_known_division_id
         FROM public.players players
         JOIN public.season_rosters rosters
           ON rosters.player_id = players.id
@@ -265,6 +275,12 @@ BEGIN
         END IF;
         IF v_known_roster_status <> 'active' OR v_known_player_org_id <> v_expected_org_id THEN
           RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Supplied player is not active on the expected organization.';
+        END IF;
+        -- An organization can hold a season roster in more than one division.
+        -- Without this the stat row would be stamped with the match division
+        -- while the player is rostered in another one.
+        IF v_known_division_id IS DISTINCT FROM v_match.division_id THEN
+          RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Supplied player is not rostered in the match division.';
         END IF;
       END IF;
     END LOOP;
@@ -351,8 +367,18 @@ BEGIN
       MESSAGE = 'Actor is not an authorized administrator.';
   END IF;
 
+  -- Serialize on the correction key before reading the receipt. Two retries
+  -- that start before either commits would otherwise both see no receipt; the
+  -- loser would then reload the report behind the winner's revision bump and
+  -- fail the stale-revision check instead of returning the recorded outcome.
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended('match_report_correction:' || v_correction_key, 0)
+  );
+
   -- An exact retry after an uncertain network result returns the recorded
-  -- outcome instead of correcting a second time.
+  -- outcome instead of correcting a second time. The key is bound to the whole
+  -- request, so a client that accidentally reuses a key for a different
+  -- correction is told rather than having its change silently discarded.
   SELECT * INTO v_existing
   FROM public.match_report_corrections
   WHERE correction_key = v_correction_key;
@@ -361,6 +387,14 @@ BEGIN
       RAISE EXCEPTION USING
         ERRCODE = '23505',
         MESSAGE = 'Correction key already recorded for a different match report.';
+    END IF;
+    IF v_existing.actor_discord_id <> v_actor_discord_id
+      OR v_existing.reason <> v_reason
+      OR v_existing.expected_revision <> p_expected_revision
+      OR v_existing.request_json <> jsonb_build_object('games', p_games) THEN
+      RAISE EXCEPTION USING
+        ERRCODE = '23505',
+        MESSAGE = 'Correction key already recorded for a different correction.';
     END IF;
     RETURN v_existing.result_json || jsonb_build_object('code', 'already_corrected', 'applied', false);
   END IF;
