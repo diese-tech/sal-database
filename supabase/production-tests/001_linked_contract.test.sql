@@ -5,7 +5,7 @@ SET LOCAL search_path TO extensions, public, storage, pg_catalog;
 SELECT plan(74);
 
 SELECT ok(
-  (SELECT count(*) = 51
+  (SELECT count(*) = 52
    FROM pg_class c
    JOIN pg_namespace n ON n.oid = c.relnamespace
    WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')),
