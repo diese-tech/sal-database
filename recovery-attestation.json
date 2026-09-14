@@ -1,12 +1,12 @@
 {
   "attestationVersion": 3,
-  "contractVersion": "db-v1.20.0",
-  "migrationHead": "20260823130000",
-  "contractCommit": "b5c497d847628fc52d1530791fb25f9e67c72455",
-  "contractSha256": "sha256:d244ee25ddcb3bc79f8b5c81fa857055737b5837c4070e20c3305224eb5d54e5",
-  "deploymentInputsSha256": "sha256:eba36cdeba4a27d9ab9b0467fa5f02cfd3a1a1315b12b298beb86fa3a6998df6",
+  "contractVersion": "db-v1.21.1",
+  "migrationHead": "20260901120000",
+  "contractCommit": "4bf9f34e0e69651acbfeec159e15f1cdde567010",
+  "contractSha256": "sha256:276d14d0a6cab1b2416fa9cd4903f6e9d97b9f6bd174aad09d2a6a11ce814546",
+  "deploymentInputsSha256": "sha256:ddb944d32aa3162ebe993d926bd734bf5975731ecd98d170fcce3148dc2515be",
   "productionPostgresMajor": 17,
-  "restoreEvidenceSha256": "sha256:1e3633d343dfaa80af1ad728beccd502065abf2c3f7d552113e1b1b8e0847104",
+  "restoreEvidenceSha256": "sha256:9db42a4c7d0e12a6d5b61485ea9c4800354f70acd276dbf9b2d21e4d6633e2a6",
   "recoveryIssue": "https://github.com/diese-tech/sal-site/issues/156",
   "migration025DispositionVerified": true,
   "site170DeploymentVerified": true,
@@ -18,8 +18,8 @@
   "productionLedgerCaptured": true,
   "baselineParityVerified": true,
   "rpoMinutes": 10080,
-  "rtoMinutes": 1.12,
+  "rtoMinutes": 2.43,
   "approvedBy": "diese-tech",
-  "approvedAt": "2026-07-29T08:29:25Z",
-  "expiresAt": "2026-08-27T08:29:25Z"
+  "approvedAt": "2026-09-14T01:56:44Z",
+  "expiresAt": "2026-10-14T01:56:44Z"
 }
