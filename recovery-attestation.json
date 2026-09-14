@@ -4,7 +4,7 @@
   "migrationHead": "20260901120000",
   "contractCommit": "4bf9f34e0e69651acbfeec159e15f1cdde567010",
   "contractSha256": "sha256:276d14d0a6cab1b2416fa9cd4903f6e9d97b9f6bd174aad09d2a6a11ce814546",
-  "deploymentInputsSha256": "sha256:ddb944d32aa3162ebe993d926bd734bf5975731ecd98d170fcce3148dc2515be",
+  "deploymentInputsSha256": "sha256:945bc699a7210ad2107c04dda1de497ff0a66d9d9301eb44985c55db523b627f",
   "productionPostgresMajor": 17,
   "restoreEvidenceSha256": "sha256:9db42a4c7d0e12a6d5b61485ea9c4800354f70acd276dbf9b2d21e4d6633e2a6",
   "recoveryIssue": "https://github.com/diese-tech/sal-site/issues/156",
