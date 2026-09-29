@@ -1,0 +1,24 @@
+name: Add issues and PRs to SAL Project
+
+on:
+  issues:
+    types:
+      - opened
+      - reopened
+      - transferred
+
+  pull_request:
+    types:
+      - opened
+      - reopened
+
+jobs:
+  add-to-project:
+    name: Add to SAL Project
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/add-to-project@v2
+        with:
+          project-url: https://github.com/users/diese-tech/projects/4
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
