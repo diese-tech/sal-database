@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(31);
+SELECT plan(30);
 
 -- ── Contract surface ────────────────────────────────────────────────────────
 
