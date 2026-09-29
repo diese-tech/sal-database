@@ -119,3 +119,13 @@ before-and-after audits; an exact retry returns the recorded receipt instead of
 applying a second mutation. The reviewed-payload rules are factored into
 `private.validate_match_report_games` so a correction cannot accept anything
 approval would reject.
+
+`20260929120000_correction_historical_player_identity.sql` makes the
+correction validator identity-based. A supplied player ID must exist and match
+the supplied IGN; current season-roster membership, active status,
+organization, and division are no longer required. Historical matches include
+players who filled in, subbed, or were traded without that movement ever being
+recorded before the import, and a correction has to be able to credit them. The
+organization on each stat row is still derived from the side the player played
+on. Only `correct_match_report_result` calls the validator, so the approval
+path is unchanged.

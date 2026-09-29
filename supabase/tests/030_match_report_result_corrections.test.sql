@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path TO extensions, public, pg_catalog;
 
-SELECT plan(26);
+SELECT plan(31);
 
 -- ── Contract surface ────────────────────────────────────────────────────────
 
@@ -125,6 +125,7 @@ RETURNS jsonb LANGUAGE sql STABLE AS $fn$
         FROM (
           SELECT * FROM public.players
           WHERE org_id IN ('mr-fix-home', 'mr-fix-away')
+            AND id ~ '^mr-fix-(home|away)-[0-9]+$'
           ORDER BY id
         ) p
       )
@@ -398,35 +399,113 @@ SELECT throws_ok(
   'a reused correction key with a different payload is rejected, not replayed'
 );
 
--- An organization can hold a season roster in more than one division; a player
--- rostered elsewhere must not earn canonical stats in this match's division.
+-- ── Historical players ─────────────────────────────────────────────────────
+--
+-- Players who filled in, subbed, or were traded without that movement being
+-- recorded before the import must still be credited with their own stats. The
+-- validator checks identity (the player exists and the IGN matches), not
+-- current roster membership.
+
+-- A fill-in with no season roster row at all.
+INSERT INTO public.players (
+  id, org_id, discord_username, ign, avatar_initials, avatar_gradient,
+  primary_role, division_id, status
+) VALUES (
+  'mr-fix-sub-1', 'mr-fix-away', 'mr-fix-sub-1', 'CF Sub 1',
+  'CS', 'from-black to-white', 'Flex', 'terra', 'active'
+);
+
+-- A player now rostered on the home organization who earlier played for away.
+INSERT INTO public.players (
+  id, org_id, discord_username, ign, avatar_initials, avatar_gradient,
+  primary_role, division_id, status
+) VALUES (
+  'mr-fix-traded', 'mr-fix-home', 'mr-fix-traded', 'CF Traded',
+  'CT', 'from-black to-white', 'Flex', 'terra', 'active'
+);
+INSERT INTO public.season_rosters (season_id, player_id, org_id, division_id, roster_status)
+VALUES ('mr-fix-season', 'mr-fix-traded', 'mr-fix-home', 'terra', 'active');
+
+-- A home player whose season roster sits in another division.
 INSERT INTO public.season_orgs (season_id, org_id, division_id)
 VALUES ('mr-fix-season', 'mr-fix-home', 'solar');
 UPDATE public.season_rosters
 SET division_id = 'solar'
 WHERE season_id = 'mr-fix-season' AND player_id = 'mr-fix-home-1';
 
+-- Swaps two away slots for the fill-in and the traded player in every game.
+CREATE FUNCTION pg_temp.mr_fix_games_historical(home_wins integer[], kills integer)
+RETURNS jsonb LANGUAGE sql STABLE AS $fn$
+  SELECT jsonb_agg(
+    jsonb_set(jsonb_set(jsonb_set(jsonb_set(game,
+      '{players,0,playerIgn}', '"CF Sub 1"'),
+      '{players,0,playerId}', '"mr-fix-sub-1"'),
+      '{players,1,playerIgn}', '"CF Traded"'),
+      '{players,1,playerId}', '"mr-fix-traded"')
+    ORDER BY game ->> 'gameNumber')
+  FROM jsonb_array_elements(pg_temp.mr_fix_games(home_wins, kills)) AS game;
+$fn$;
+
+-- Identity is still enforced: the player must exist, and the IGN must be theirs.
 SELECT throws_ok(
   $$SELECT public.correct_match_report_result(
       'aaaaaaaa-0000-4000-8000-000000000001', 'mr-fix-admin', 2,
-      'mr-fix-cross-division', 'Cross-division roster member.',
-      pg_temp.mr_fix_games(ARRAY[1, 2], 6))$$,
-  '23514',
-  'Supplied player is not rostered in the match division.',
-  'a correction cannot credit a player rostered in another division'
+      'mr-fix-unknown-player', 'Unknown player.',
+      (SELECT jsonb_agg(jsonb_set(game, '{players,0,playerId}', '"mr-fix-nobody"'))
+       FROM jsonb_array_elements(pg_temp.mr_fix_games(ARRAY[1, 2], 6)) AS game))$$,
+  '23503',
+  'Supplied player does not exist.',
+  'a correction cannot credit a player ID that does not exist'
 );
 
-UPDATE public.season_rosters
-SET division_id = 'terra'
-WHERE season_id = 'mr-fix-season' AND player_id = 'mr-fix-home-1';
+SELECT throws_ok(
+  $$SELECT public.correct_match_report_result(
+      'aaaaaaaa-0000-4000-8000-000000000001', 'mr-fix-admin', 2,
+      'mr-fix-wrong-ign', 'Wrong identity.',
+      (SELECT jsonb_agg(jsonb_set(game, '{players,0,playerId}', '"mr-fix-sub-1"'))
+       FROM jsonb_array_elements(pg_temp.mr_fix_games(ARRAY[1, 2], 6)) AS game))$$,
+  '23514',
+  'Supplied player ID does not match the player IGN.',
+  'a correction cannot credit a player under another player''s IGN'
+);
+
+SELECT lives_ok(
+  $$SELECT public.correct_match_report_result(
+      'aaaaaaaa-0000-4000-8000-000000000001', 'mr-fix-admin', 2,
+      'mr-fix-historical', 'Credit the fill-in, the traded player and a cross-division roster member.',
+      pg_temp.mr_fix_games_historical(ARRAY[1, 2], 6))$$,
+  'a correction can credit players with no roster row, another team, or another division'
+);
 
 SELECT ok(
-  (SELECT revision = 2 AND home_score = 3 AND away_score = 0
+  (SELECT count(*) = 3 FROM public.player_match_stats
+   WHERE match_report_id = 'aaaaaaaa-0000-4000-8000-000000000001'
+     AND player_id = 'mr-fix-sub-1' AND org_id = 'mr-fix-away')
+  AND (SELECT count(*) = 3 FROM public.player_match_stats
+       WHERE match_report_id = 'aaaaaaaa-0000-4000-8000-000000000001'
+         AND player_id = 'mr-fix-traded' AND org_id = 'mr-fix-away'),
+  'each historical player is credited on the side they played, not their current organization'
+);
+
+SELECT ok(
+  (SELECT count(*) = 3 FROM public.player_match_stats
+   WHERE match_report_id = 'aaaaaaaa-0000-4000-8000-000000000001'
+     AND player_id = 'mr-fix-home-1' AND org_id = 'mr-fix-home')
+  AND NOT EXISTS (
+    SELECT 1 FROM public.player_match_stats
+    WHERE match_report_id = 'aaaaaaaa-0000-4000-8000-000000000001'
+      AND player_id IN ('mr-fix-away-1', 'mr-fix-away-2')
+  ),
+  'the cross-division player keeps their stats and the replaced players lose theirs'
+);
+
+SELECT ok(
+  (SELECT revision = 3 AND home_score = 2 AND away_score = 1
    FROM public.match_reports WHERE id = 'aaaaaaaa-0000-4000-8000-000000000001')
-  AND (SELECT count(*) = 1 FROM public.match_report_corrections)
+  AND (SELECT count(*) = 2 FROM public.match_report_corrections)
   AND (SELECT count(*) = 30 FROM public.player_match_stats
        WHERE match_report_id = 'aaaaaaaa-0000-4000-8000-000000000001'),
-  'every rejected correction leaves the published result untouched'
+  'the published result holds exactly the accepted corrections'
 );
 
 SELECT * FROM finish();
